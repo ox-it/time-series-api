@@ -185,4 +185,4 @@ class EndpointView(ContentNegotiatedView):
         try:
             return view(request)
         except SeriesNotFound:
-            raise self._error_view(request, 404, "There is no such series.")
+            return self._error_view(request, 404, "There is no such series.")
