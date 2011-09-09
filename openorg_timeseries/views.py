@@ -14,7 +14,7 @@ from django.http import HttpResponse
 from django_conneg.views import ContentNegotiatedView, HTMLView, TextView, JSONPView
 from django_conneg.decorators import renderer
 
-from openorg_timeseries.longliving.rrdtool import RRDClient
+from openorg_timeseries.longliving.rrdtool import RRDClient, SeriesNotFound
 
 TS = rdflib.Namespace('http://purl.org/net/time-series/')
 
@@ -177,9 +177,12 @@ class EndpointView(ContentNegotiatedView):
         command = request.GET.get('command', '')
         if not self._SERIES_RE.match(command):
             return self._index_view(request)
-        
+
         view = self._views_by_command.get(command)
         if not view:
             return self._error_view(request, 400, "There is no such command.")
-        
-        return view(request)
+
+        try:
+            return view(request)
+        except SeriesNotFound:
+            raise self._error_view(request, 404, "There is no such series.")
