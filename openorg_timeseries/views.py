@@ -163,8 +163,6 @@ class GraphView(HTMLView, JSONPView):
         return EndpointView._error_view(request, 501, 'Not yet implemented')
 
 class EndpointView(ContentNegotiatedView):
-    _SERIES_RE = re.compile(r'^[a-zA-Z_\d-]{1,32}$')
-
     # IndexView.as_view and ErrorView.as_view return functions, so we declare
     # it static to make sure Python doesn't try to turn it into an unbound
     # method at class creation time.
@@ -176,11 +174,9 @@ class EndpointView(ContentNegotiatedView):
                          'graph': GraphView.as_view()}
 
     def get(self, request):
-        command = request.GET.get('command', '')
-        if not self._SERIES_RE.match(command):
-            return self._index_view(request)
+        action = request.GET.get('action', '')
 
-        view = self._views_by_command.get(command)
+        view = self._views_by_command.get(action)
         if not view:
             return self._error_view(request, 400, "There is no such command.")
 
