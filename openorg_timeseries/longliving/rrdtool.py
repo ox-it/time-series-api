@@ -10,6 +10,8 @@ import time
 
 import processing.connection
 
+from django.conf import settings
+
 class RRDException(Exception): pass
 class ClientError(RRDException): pass
 class NoSuchCommand(ClientError): pass
@@ -18,9 +20,6 @@ class SeriesAlreadyExists(ClientError): pass
 class InvalidCommand(RRDException): pass
 class RRDToolError(RRDException): pass
 class UnexpectedRRDException(RRDException): pass
-
-PORT = 1235
-PATH = '/home/alex/timeseries/'
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +33,7 @@ class RRDThread(threading.Thread):
     def run(self):
         rrdtool = subprocess.Popen(['rrdtool', '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
-        listener = processing.connection.Listener(('localhost', PORT))
+        listener = processing.connection.Listener(('localhost', settings.TIME_SERIES_PORT))
 
         rlist = [listener._listener._socket]
 
@@ -85,7 +84,7 @@ class RRDThread(threading.Thread):
             and isinstance(args, tuple) and isinstance(kwargs, dict)):
             return ClientError
 
-        filename = os.path.join(PATH, series.encode('utf-8') + '.rrd')
+        filename = os.path.join(settings.TIME_SERIES_PATH, series.encode('utf-8') + '.rrd')
         series_exists = os.path.exists(filename)
 
         if not self.SERIES_RE.match(series):
@@ -224,7 +223,7 @@ class RRDThread(threading.Thread):
 
 class RRDClient(object):
     def __init__(self):
-        self.client = processing.connection.Client(('localhost', PORT))
+        self.client = processing.connection.Client(('localhost', settings.TIME_SERIES_PORT))
 
     def command(self, command, series, *args, **kwargs):
         self.client.send((command, series, args, kwargs))
