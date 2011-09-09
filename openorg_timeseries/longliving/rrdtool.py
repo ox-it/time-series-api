@@ -257,7 +257,7 @@ def run():
     rrd_thread.start()
 
     try:
-        while rrd_thread.is_alive():
+        while rrd_thread.isAlive():
             time.sleep(1)
     except KeyboardInterrupt:
         bail.set()
