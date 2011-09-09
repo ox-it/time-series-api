@@ -1,2 +1,4 @@
 Django
-
+django-conneg
+python-dateutil==1.5
+rdflib>=3.0
