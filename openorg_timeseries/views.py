@@ -1,4 +1,3 @@
-import math
 import os
 import re
 import time
@@ -98,7 +97,6 @@ class FetchView(JSONPView, TextView):
         return self.render(request, context, 'timeseries/fetch')
 
     def spool_csv(self, context):
-        NaN = float('nan')
         def quote(value):
             if value is None:
                 return ''
@@ -109,7 +107,11 @@ class FetchView(JSONPView, TextView):
         for series in context['series']:
             name, data = series, context['series'][series]['data']
             for datum in data:
-                val = '' if math.isnan(datum['val']) else str(datum['val'])
+                # val may be NaN, which is not equal to itself. math.isnan()
+                # is only available in >=Py2.6, so use this (somewhat weird-
+                # looking) test.
+                val = datum['val']
+                val = str(val) if val==val else ''
                 yield ",".join(quote(value) for value in (name, datum['ts'].strftime('%Y-%m-%dT%H:%M:%SZ'), val))
                 yield '\n'
 
