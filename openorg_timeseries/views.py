@@ -37,6 +37,28 @@ class RDFView(ContentNegotiatedView):
     def render_n3(self, request, context, template_name):
         return self.render_rdflib(request, context, 'n3', 'text/n3')
 
+class TabularView(ContentNegotiatedView):
+    def get_table(self):
+        raise NotImplementedError
+
+    def _spool_csv(self, request, context):
+        table = self.get_table(request, context)
+        def quote(value):
+            if value is None:
+                return ''
+            value = value.replace('"', '""')
+            if any(bad_char in value for bad_char in '\n" ,'):
+                value = '"%s"' % value
+            return value
+
+        for row in table:
+            yield ",".join(map, quote, row)
+            yield '\n'
+
+    @renderer(format='csv', mimetypes=('text/csv',), name='CSV')
+    def render_csv(self, request, context, template_name):
+        return HttpResponse(self._spool_csv(request, context), mimetype="text/csv")
+
 class IndexView(HTMLView):
     def get(self, request):
         return self.render(request, {}, 'timeseries/index')
@@ -51,7 +73,7 @@ class ErrorView(HTMLView, JSONPView, TextView):
         }
         return self.render(request, context, 'timeseries/error')
 
-class FetchView(JSONPView, TextView):
+class FetchView(JSONPView, TextView, TabularView):
     def get(self, request):
         try:
             series_names = request.GET['series'].split(',')
@@ -95,14 +117,7 @@ class FetchView(JSONPView, TextView):
 
         return self.render(request, context, 'timeseries/fetch')
 
-    def spool_csv(self, context):
-        def quote(value):
-            if value is None:
-                return ''
-            value = value.replace('"', '""')
-            if any(bad_char in value for bad_char in '\n" ,'):
-                value = '"%s"' % value
-            return value
+    def get_table(self, request, context):
         for series in context['series']:
             name, data = series, context['series'][series]['data']
             for datum in data:
@@ -111,8 +126,7 @@ class FetchView(JSONPView, TextView):
                 # looking) test.
                 val = datum['val']
                 val = str(val) if val==val else ''
-                yield ",".join(quote(value) for value in (name, datum['ts'].strftime('%Y-%m-%dT%H:%M:%SZ'), val))
-                yield '\n'
+                yield (name, datum['ts'].strftime('%Y-%m-%dT%H:%M:%SZ'), val)
 
     @renderer(format='csv', mimetypes=('text/csv',), name="CSV")
     def render_csv(self, request, context, template_name):
@@ -161,12 +175,15 @@ class GraphView(HTMLView, JSONPView):
         #return self.render(request, {}, 'timeseries/graph')
         return EndpointView._error_view(request, 501, 'Not yet implemented')
 
-class ListView(HTMLView, JSONPView):
+class ListView(HTMLView, JSONPView, TabularView):
     def get(self, request):
         client = RRDClient()
         context = {'names': client.list()}
         return self.render(request, context, 'timeseries/list')
-        
+
+    def get_table(self, request, context):
+        for name in context['names']:
+            yield [name]
 
 class EndpointView(ContentNegotiatedView):
     # IndexView.as_view and ErrorView.as_view return functions, so we declare
