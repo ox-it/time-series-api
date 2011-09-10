@@ -79,6 +79,13 @@ class FetchView(JSONPView, TextView, TabularView):
             series_names = request.GET['series'].split(',')
         except KeyError:
             return EndpointView._error_view(request, 400, "You must supply a series parameter.")
+        
+        try:
+            aggregation_type = request.GET['type']
+            if aggregation_type not in ('average', 'min', 'max'):
+                raise ValueError
+        except (KeyError, ValueError):
+            return EndpointView._error_view(request, 400, "Missing required parameter 'type', which must be one of 'average', 'min', 'max'.")
 
         fetch_arguments = {}
         for argument, parameter in (('start', 'startTime'), ('end', 'endTime')):
@@ -133,6 +140,8 @@ class FetchView(JSONPView, TextView, TabularView):
         return HttpResponse(self.spool_csv(context), mimetype="text/csv")
 
 class InfoView(HTMLView, JSONPView, RDFView):
+    series_types = {'gauge': 'rate', 'counter': 'rate', 'absolute': 'cumulative'}
+
     def get(self, request):
         try:
             series_names = request.GET['series'].split(',')
@@ -142,10 +151,12 @@ class InfoView(HTMLView, JSONPView, RDFView):
         client = RRDClient()
         context = {'series': {}}
         for series_name in series_names:
-            context['series'][series_name] = {
+            metadata = {
                 'name': series_name,
                 'info': client.info(series_name),
             }
+            metadata['info']['type'] = self.series_types[metadata['info']['type']]
+            context['series'][series_name] = metadata
 
         return self.render(request, context, 'timeseries/info')
 
@@ -155,13 +166,12 @@ class InfoView(HTMLView, JSONPView, RDFView):
         graph += ((endpoint, RDF.type, TS.TimeSeriesEndpoint),)
         for series in context['series'].itervalues():
             info = series['info']
-            series_type = {'gauge': 'rate', 'counter': 'rate', 'absolute': 'cumulative'}[info['type']]
             timeseries = rdflib.URIRef(settings.TIME_SERIES_URI_BASE + series['name'])
             graph += ((timeseries, RDF.type, TS.TimeSeries),
                       (timeseries, TS.endpoint, endpoint),
                       (timeseries, TS.seriesName, rdflib.Literal(series['name'])),
                       (timeseries, TS.resolution, rdflib.Literal(int(info['interval']))),
-                      (timeseries, TS.type, TS[series_type]))
+                      (timeseries, TS.type, TS[info['type']]))
             for i, sample in enumerate(series['info']['samples']):
                 sample_uri = rdflib.URIRef('%s/%s' % (timeseries, i))
                 graph += ((sample_uri, RDF.type, TS.Sampling),
