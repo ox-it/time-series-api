@@ -12,7 +12,7 @@ from django.http import HttpResponse
 from django_conneg.views import ContentNegotiatedView, HTMLView, TextView, JSONPView
 from django_conneg.decorators import renderer
 
-from openorg_timeseries.longliving.rrdtool import RRDClient, SeriesNotFound
+from openorg_timeseries.longliving.rrdtool import RRDClient, SeriesNotFound, CFNotAvailable
 
 TS = rdflib.Namespace('http://purl.org/NET/time-series/')
 
@@ -116,7 +116,11 @@ class FetchView(JSONPView, TextView, TabularView):
                 context['series'][series] = {'error': 'not-found'}
                 continue
 
-            result = client.fetch(series, **fetch_arguments)
+            try:
+                result = client.fetch(series, **fetch_arguments)
+            except CFNotAvailable:
+                context['series'][series] = {'error':'type-not-available'}
+                continue
             context['series'][series] = {
                 'name': series,
                 'data': [{'ts': ts, 'val': val} for ts, val in result],

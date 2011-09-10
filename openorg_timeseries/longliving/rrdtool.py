@@ -17,6 +17,7 @@ class ClientError(RRDException): pass
 class NoSuchCommand(ClientError): pass
 class SeriesNotFound(ClientError): pass
 class SeriesAlreadyExists(ClientError): pass
+class CFNotAvailable(ClientError): pass
 class InvalidCommand(RRDException): pass
 class RRDToolError(RRDException): pass
 class UnexpectedRRDException(RRDException): pass
@@ -137,8 +138,10 @@ class RRDThread(threading.Thread):
         except RRDToolError, e:
             if 'should be less than end' in e.message:
                 results = []
-            if e.message.startswith('ERROR: start time: '):
+            elif e.message.startswith('ERROR: start time: '):
                 results = []
+            elif e.message == "ERROR: the RRD does not contain an RRA matching the chosen CF":
+                raise CFNotAvailable()
             else:
                 raise
 
