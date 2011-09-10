@@ -150,12 +150,16 @@ class InfoView(HTMLView, JSONPView, RDFView):
     series_types = {'gauge': 'rate', 'counter': 'rate', 'absolute': 'cumulative'}
 
     def get(self, request):
+        client = RRDClient()
         try:
-            series_names = request.GET['series'].split(',')
+            series_names = request.GET['series']
+            if series_names == '*':
+                series_names = client.list()
+            else:
+                series_names = series_names.split(',')
         except KeyError:
             return EndpointView._error_view(request, 400, "You must supply a series parameter.")
 
-        client = RRDClient()
         context = {'series': {}}
         for series_name in series_names:
             metadata = {
