@@ -52,7 +52,7 @@ class TabularView(ContentNegotiatedView):
             return value
 
         for row in table:
-            yield ",".join(map, quote, row)
+            yield ",".join(map(quote, row))
             yield '\n'
 
     @renderer(format='csv', mimetypes=('text/csv',), name='CSV')
