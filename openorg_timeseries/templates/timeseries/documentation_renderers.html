@@ -1,0 +1,17 @@
+      <table class="serializations">
+        <caption>Supported serializations for the <tt>{{ action }}</tt> action</caption>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th><tt>format</tt> value</th>
+            <th>Internet media type</th>
+          </tr>
+        </thead>
+        <tbody>{% for renderer in renderers %}
+          <tr>
+            <td>{{ renderer.name }}</td>
+            <td><tt>{{ renderer.format }}</tt></td>
+            <td>{% for mimetype in renderer.mimetypes %}<tt>{{ mimetype }}</tt>{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+          </tr>{% endfor %}
+        </tbody>
+      </table>

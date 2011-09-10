@@ -210,3 +210,14 @@ class EndpointView(ContentNegotiatedView):
             return view(request)
         except SeriesNotFound:
             return self._error_view(request, 404, "There is no such series. Use ?action=list to see what series are available.")
+
+class DocumentationView(HTMLView):
+    def get(self, request):
+        renderers = {}
+        for action, view in EndpointView._views_by_action.iteritems():
+            renderers[action] = [{'format': r.format, 'mimetypes': r.mimetypes, 'name': r.name} for r in view._renderers]
+        context = {
+            'endpoint_url': request.build_absolute_uri(reverse('timeseries:index')),
+            'renderers': renderers,
+        }
+        return self.render(request, context, 'timeseries/documentation')

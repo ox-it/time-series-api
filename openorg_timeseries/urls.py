@@ -1,7 +1,8 @@
 from django.conf.urls.defaults import *
 
-from openorg_timeseries.views import EndpointView
+from openorg_timeseries import views
 
 urlpatterns = patterns('',
-    (r'^$', EndpointView.as_view(), {}, 'index')
+    (r'^$', views.EndpointView.as_view(), {}, 'index'),
+    (r'^documentation/$', views.DocumentationView.as_view(), {}, 'doc'),
 )

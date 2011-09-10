@@ -1,0 +1,127 @@
+{% extends "timeseries/base.html" %}
+
+{% block title %}Time-series endpoint documentation{% endblock %}
+
+{% block extrahead %}{{ block.super }}
+  <style type="text/css">
+    table.serializations {
+      border: 1px solid #aaa;
+      float:right;
+      font-size:80%;
+    }
+  </style>
+{% endblock %}
+
+{% block body %}
+<article>
+  <h1>Documentation of the time-series endpoint API</h1>
+  
+  <p>This site exposes a time-series endpoint at
+     <a href="{% url timeseries:index %}">{{ endpoint_url }}</a>.
+     The endpoint exposes a simple API for querying data from a number of
+     time-series.</p>
+     
+  <section id="definition">
+    <h2>What is a time-series?</h2>
+    
+    <p>A time-series is a sequence of data points, where each point is some
+       value sampled at regular or irregular intervals over time. For more
+       information, see the <a href="http://en.wikipedia.org/wiki/Time_series">Wikipedia article</a>.</p>
+  </section>
+  
+  <section id="available">
+    <h2>What is available through this endpoint?</h2>
+    
+    <p>The endpoint only exposes the raw time-series data (a sequence of
+       timestamp—real-number pairs) and metadata about how that data is held
+       and can be queried. It does not ascribe any <em>meaning</em> to the
+       data, such as the units used, how the data were collected, or what they
+       relate to.</p>
+    
+    <p>Time series are recorded at one or more fixed resolutions, with lower
+       resolutions being aggregations of higher resolutions. For example, an
+       electricity meter time series might contain average power draw (kW) for
+       successive half-hour periods. These might then be aggregated to provide
+       daily and weekly average power draws. The endpoint exposes the possible
+       resolutions so that you can specify a desired resolution when fetching
+       data.</p> 
+  </section>
+  
+  <section id="ref">
+    <h2>API reference</h2>
+    
+    <p>The endpoint is available at <a href="{% url timeseries:index %}">a
+       single base URL</a> with query parameters used to control the
+       response.</p>
+       
+    <p>This implementation of the API supports
+       <a href="http://en.wikipedia.org/wiki/Content_negotiation">content
+       negotiation</a> on <a href="http://en.wikipedia.org/wiki/Internet_media_type">Internet
+       media type (MIME type)</a>. This means that you can send an
+       <tt>Accept</tt> request header with the
+       <abbr title="Internet media type">IMT</abbr> of your preferred response
+       serialization. Alternatively, use the <tt>format</tt> query parameter
+       with the serialization name. Supported
+       <abbr title="Internet media type">IMT</abbr>s and serialization names
+       are given below.</p>
+       
+    <p>The <em><tt>action</tt></em> parameter may have one of the following values:</p>
+    
+    <dl>
+      <dt><a href="#ref-list"><tt>list</tt></a></dt>
+      <dd>Returns a list of available time-series</dd>
+      <dt><a href="#ref-info"><tt>info</tt></a></dt>
+      <dd>Returns metadata about a series</dd>
+      <dt><a href="#ref-fetch"><tt>fetch</tt></a></dt>
+      <dd>Returns a time-bounded range of data from the series</dd> 
+    </dl>
+    
+    <section>
+      <h3 id="ref-list">The <tt>list</tt> action</h3>
+      {% with renderers=renderers.list action="list" %}
+        {% include "timeseries/documentation_renderers.html" %}
+      {% endwith %}
+      
+      <p>The <tt>list</tt> action returns a list of all series for which the
+         endpoint can supply data. In JSON format, the response is an object
+         containing a <tt>names</tt> member, being a list of strings. For
+         example:</p>
+         
+      <pre>{ "names": ["first_series", "second_series", "third_series"] }</pre>
+      
+      <p>As <abbr title="comma-separated values">CSV</abbr>
+         the response is effectively a newline-delimited list of names:</p>
+      
+      <pre>first_series
+second_series
+third_series</pre>
+
+      <p>This endpoint's <a href="{% url timeseries:index %}?action=list">series list</a> is available as
+         {% for renderer in renderers.list %}{% if not forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endif %}<a href="{% url timeseries:index %}?action=list&format={{ renderer.format }}">{{ renderer.name }}</a>{% endfor %}.</p>
+         
+      <div style="clear:both;"/>
+    </section>
+
+    <section>
+      <h3 id="ref-info">The <tt>info</tt> action</h3>
+      {% with renderers=renderers.info action="info" %}
+        {% include "timeseries/documentation_renderers.html" %}
+      {% endwith %}
+      
+      <p>The <tt>info</tt> action will return metadata about the series in
+         question.</p>
+         
+      
+      <div style="clear:both;"/>
+    </section>
+
+    <section>
+      <h3 id="fetch">The <tt>fetch</tt> action</h3>
+      {% with renderers=renderers.fetch action="fetch" %}
+        {% include "timeseries/documentation_renderers.html" %}
+      {% endwith %}
+      
+      <div style="clear:both;"/>
+  </section>
+</article>
+{% endblock %}
