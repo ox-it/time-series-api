@@ -14,7 +14,7 @@ from django_conneg.decorators import renderer
 
 from openorg_timeseries.longliving.rrdtool import RRDClient, SeriesNotFound
 
-TS = rdflib.Namespace('http://purl.org/net/time-series/')
+TS = rdflib.Namespace('http://purl.org/NET/time-series/')
 
 class RDFView(ContentNegotiatedView):
     def render_rdflib(self, request, context, format, mimetype):
