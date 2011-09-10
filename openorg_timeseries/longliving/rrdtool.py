@@ -112,8 +112,8 @@ class RRDThread(threading.Thread):
             logger.exception("Unexpected exception raised by processor.")
             return UnexpectedRRDException(e)
 
-    def process_fetch(self, rrdtool, filename, aggegation_type, start=None, end=None, resolution=None):
-        command = ['fetch', filename, aggegation_type.upper()]
+    def process_fetch(self, rrdtool, filename, aggregation_type, start=None, end=None, resolution=None):
+        command = ['fetch', filename, aggregation_type.upper()]
         if start:
             if resolution:
                 start = (start // resolution) * resolution
@@ -238,8 +238,8 @@ class RRDClient(object):
         else:
             return value
 
-    def fetch(self, series, aggegation_type, start=None, end=None, resolution=None):
-        return self.command('fetch', series, aggegation_type, start, end, resolution)
+    def fetch(self, series, aggregation_type, start=None, end=None, resolution=None):
+        return self.command('fetch', series, aggregation_type, start, end, resolution)
 
     def info(self, series):
         return self.command('info', series)
