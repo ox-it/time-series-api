@@ -178,6 +178,29 @@ third_series</pre>
         {% include "timeseries/documentation_renderers.html" %}
       {% endwith %}
       
+      <p>The <tt>fetch</tt> action takes the following parameters:</p>
+      
+      <dl>
+        <dt><tt>series</tt> (required)</dt>
+        <dd>A comma-separated list of series for which to return data.</dd>
+        <dt><tt>type</tt> (required)</dt>
+        <dd>The aggregation type, corresponding to that returned as a
+            <tt>type</tt> member on a sample. Must be one of
+            <tt>"average"</tt>, <tt>"min"</tt> and <tt>"max"</tt>.</dd>
+        <dt><tt>resolution</tt> (optional)</dt>
+        <dd>The number of seconds between readings. Must match that given by
+            a sample. Defaults to the time-series resolution (i.e. the most
+            frequent).</dd>
+        <dt><tt>startTime</tt> (optional)</dt>
+        <dd>The start of the time range to return. Can be either a JavaScript
+            timestamp (milliseconds since 1970-01-01T00:00:00), or any other
+            sane-looking timestamp (such as YYYY-MM-DDTHH:MM:SS). Defaults to
+            48 hours ago.</dd>
+        <dt><tt>endTime</tt> (optional)</dt>
+        <dd>The end of the time range to return, using the same format as
+            <tt>startTime</tt>. Defaults to now.</dd>
+      </dl>
+      
       <div style="clear:both;"/>
   </section>
 </article>
