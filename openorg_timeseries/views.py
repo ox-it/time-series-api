@@ -80,14 +80,14 @@ class FetchView(JSONPView, TextView, TabularView):
         except KeyError:
             return EndpointView._error_view(request, 400, "You must supply a series parameter.")
         
+        fetch_arguments = {}
         try:
-            aggregation_type = request.GET['type']
-            if aggregation_type not in ('average', 'min', 'max'):
+            fetch_arguments['aggregation_type'] = request.GET['type']
+            if fetch_arguments['aggregation_type'] not in ('average', 'min', 'max'):
                 raise ValueError
         except (KeyError, ValueError):
             return EndpointView._error_view(request, 400, "Missing required parameter 'type', which must be one of 'average', 'min', 'max'.")
 
-        fetch_arguments = {}
         for argument, parameter in (('start', 'startTime'), ('end', 'endTime')):
             if parameter in request.GET:
                 timestamp = None
