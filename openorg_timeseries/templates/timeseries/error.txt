@@ -1,1 +1,1 @@
-{{ error_message }}
+{{ error_message|safe }}
