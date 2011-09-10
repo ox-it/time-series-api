@@ -1,3 +1,4 @@
+import httplib
 import os
 import time
 
@@ -69,6 +70,8 @@ class ErrorView(HTMLView, JSONPView, TextView):
     def get(self, request, status_code, message):
         context = {
             'status_code': status_code,
+            'code': status_code,
+            'response_text': httplib.responses[status_code],
             'error_message': message,
         }
         return self.render(request, context, 'timeseries/error')
