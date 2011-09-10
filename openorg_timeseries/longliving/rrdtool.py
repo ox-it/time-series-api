@@ -108,7 +108,7 @@ class RRDThread(threading.Thread):
         try:
             return processor(rrdtool, filename, *args, **kwargs)
         except RRDException, e:
-            return repr(e)
+            return e
         except Exception, e:
             logger.exception("Unexpected exception raised by processor.")
             return UnexpectedRRDException(e)
