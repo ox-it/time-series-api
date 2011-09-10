@@ -223,7 +223,7 @@ class RRDThread(threading.Thread):
             rrdtool.stdin.write(command)
             self.consume(self.get_lines(rrdtool))
     
-    def process_list(self, rrdtool):
+    def process_list(self, rrdtool, series):
         return [fn[:-4] for fn in os.listdir(settings.TIME_SERIES_PATH) if fn.endswith('.rrd')]
 
 class RRDClient(object):
