@@ -192,19 +192,21 @@ class EndpointView(ContentNegotiatedView):
     _index_view = staticmethod(IndexView.as_view())
     _error_view = staticmethod(ErrorView.as_view())
 
-    _views_by_command = {'fetch': FetchView.as_view(),
-                         'info': InfoView.as_view(),
-                         'graph': GraphView.as_view(),
-                         'list': ListView.as_view()}
+    _views_by_action = {'fetch': FetchView.as_view(),
+                        'info': InfoView.as_view(),
+                        'graph': GraphView.as_view(),
+                        'list': ListView.as_view()}
 
     def get(self, request):
-        action = request.GET.get('action', '')
+        action = request.GET.get('action')
+        if action is None:
+            return self._index_view(request)
 
-        view = self._views_by_command.get(action)
+        view = self._views_by_action.get(action)
         if not view:
-            return self._error_view(request, 400, "There is no such command.")
+            return self._error_view(request, 400, "There is no such action. Available actions are: %s." % ', '.join(self._views_by_action))
 
         try:
             return view(request)
         except SeriesNotFound:
-            return self._error_view(request, 404, "There is no such series.")
+            return self._error_view(request, 404, "There is no such series. Use ?action=list to see what series are available.")
