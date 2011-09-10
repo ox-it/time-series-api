@@ -1,0 +1,16 @@
+{% extends "timeseries/base.html" %}
+
+{% block title %}List of time-series{% endblock %}
+
+{% block body %}
+<article>
+  <h1>List of time-series</h1>
+  
+  <ul>
+{% for name in names %}
+    <li>{{ name }} (<a href="?action=info&series={{ name }}">metadata</a>)</li>
+{% endfor
+  </ul>
+
+</article>
+{% endblock %}
