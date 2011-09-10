@@ -108,8 +108,65 @@ third_series</pre>
         {% include "timeseries/documentation_renderers.html" %}
       {% endwith %}
       
-      <p>The <tt>info</tt> action will return metadata about the series in
-         question.</p>
+      <p>The <tt>info</tt> action will return metadata about the series named
+         using the <tt>series</tt> query parameter. Here's an example as
+         JSON:</p>
+         
+      <pre>{
+  "series": {
+    "first_series": {
+      "info": {
+        "updated": 1315092600000.0, 
+        "interval": 1800, 
+        "type": "gauge", 
+        "value": 0.0, 
+        "samples": [
+          {
+            "count": 100000, 
+            "type": "average", 
+            "resolution": 1800, 
+            "aggregation": 1
+          }, 
+          {
+            "count": 10000, 
+            "type": "average", 
+            "resolution": 86400, 
+            "aggregation": 48
+          }, 
+          {
+            "count": 10000, 
+            "type": "average", 
+            "resolution": 604800, 
+            "aggregation": 336
+          }
+        ]
+      }, 
+      "name": "first_series"
+    }
+  }
+}</pre>
+
+      <p>You can specify more than one series by providing a comma-separated
+         list as the <tt>series</tt> query parameter.</p>
+      
+      <p>Within the <tt>info</tt> member, the <tt>interval</tt> member
+         specifies the number of seconds between data points. The
+         <tt>type</tt> member will either be <tt>"rate"</tt>,
+         <tt>"cumulative"</tt> or <tt>"impulse"</tt>.</p>
+      
+      <p>The <tt>samples</tt> member contains a list of sampling resolutions.
+         Each sample has a <tt>type</tt> (one of <tt>"average"</tt>,
+         <tt>"min"</tt> and <tt>"max"</tt>), <tt>resolution</tt> (being the
+         number of seconds between data points), an <tt>aggregation</tt> (the
+         number of data points aggregated together), and a <tt>count</tt> (the
+         maximum number of data points held in this sample).</p>
+      
+      <p>In the above example, the samples provide half-hourly, daily and
+         weekly averages.</p>
+         
+      <p>The RDF serializations contain the same information, modelled using
+         <a href="http://purl.org/NET/time-series/">the time-series
+         vocabuluary</a>.</p>
          
       
       <div style="clear:both;"/>
