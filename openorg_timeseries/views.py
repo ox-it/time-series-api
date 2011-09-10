@@ -161,6 +161,13 @@ class GraphView(HTMLView, JSONPView):
         #return self.render(request, {}, 'timeseries/graph')
         return EndpointView._error_view(request, 501, 'Not yet implemented')
 
+class ListView(HTMLView, JSONPView):
+    def get(self, request):
+        client = RRDClient()
+        context = {'names': client.list()}
+        return self.render(request, context, 'timeseries/list')
+        
+
 class EndpointView(ContentNegotiatedView):
     # IndexView.as_view and ErrorView.as_view return functions, so we declare
     # it static to make sure Python doesn't try to turn it into an unbound
@@ -170,7 +177,8 @@ class EndpointView(ContentNegotiatedView):
 
     _views_by_command = {'fetch': FetchView.as_view(),
                          'info': InfoView.as_view(),
-                         'graph': GraphView.as_view()}
+                         'graph': GraphView.as_view(),
+                         'list': ListView.as_view()}
 
     def get(self, request):
         action = request.GET.get('action', '')

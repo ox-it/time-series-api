@@ -87,9 +87,11 @@ class RRDThread(threading.Thread):
         filename = os.path.join(settings.TIME_SERIES_PATH, series.encode('utf-8') + '.rrd')
         series_exists = os.path.exists(filename)
 
-        if not self.SERIES_RE.match(series):
+        if command != 'list' and not self.SERIES_RE.match(series):
             return SeriesNotFound("The series name is invalid: %r" % series)
-        if command == 'create':
+        if command == 'list':
+            pass
+        elif command == 'create':
             if series_exists:
                 return SeriesAlreadyExists("A series with that name already exists.")
         elif command == 'exists':
@@ -220,6 +222,9 @@ class RRDThread(threading.Thread):
 
             rrdtool.stdin.write(command)
             self.consume(self.get_lines(rrdtool))
+    
+    def process_list(self, rrdtool):
+        return [fn[:-4] for fn in os.listdir(settings.TIME_SERIES_PATH) if fn.endswith('.rrd')]
 
 class RRDClient(object):
     def __init__(self):
@@ -250,6 +255,9 @@ class RRDClient(object):
 
     def update(self, series, data):
         return self.command('update', series, data)
+    
+    def list(self):
+        return self.command('list', '*')
 
 def run():
     bail = threading.Event()
