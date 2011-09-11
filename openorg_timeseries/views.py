@@ -188,7 +188,8 @@ class InfoView(HTMLView, JSONPView, RDFView):
                 graph += ((sample_uri, RDF.type, TS.Sampling),
                           (timeseries, TS.sampling, sample_uri),
                           (sample_uri, TS.resolution, rdflib.Literal(int(sample['resolution']))),
-                          (sample_uri, TS['count'], rdflib.Literal(sample['count'])))
+                          (sample_uri, TS['count'], rdflib.Literal(sample['count'])),
+                          (sample_uri, TS['samplingType'], TS[sample['type']]))
         return graph
 
 class GraphView(HTMLView, JSONPView):
