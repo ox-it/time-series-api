@@ -142,7 +142,10 @@ class RRDThread(threading.Thread):
             for line in self.get_lines():
                 if ': ' not in line:
                     continue
-                ts, val = map(float, line.split(': '))
+                ts, val = line.split(': ')
+                ts, val = int(ts), float(val)
+                if val != val: # Catch NaN, and replace with None
+                    val = None
                 results.append((datetime.datetime.fromtimestamp(ts), val))
         except RRDToolError, e:
             if 'should be less than end' in e.message:
