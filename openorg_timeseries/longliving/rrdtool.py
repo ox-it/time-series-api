@@ -32,7 +32,7 @@ class RRDThread(threading.Thread):
         super(RRDThread, self).__init__()
 
     def run(self):
-        rrdtool = subprocess.Popen(['rrdtool', '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        self.rrdtool = subprocess.Popen(['rrdtool', '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
         listener = processing.connection.Listener(('localhost', settings.TIME_SERIES_PORT))
 
@@ -46,6 +46,7 @@ class RRDThread(threading.Thread):
             for obj in rlist_ready:
                 if obj is listener._listener._socket:
                     conn = listener.accept()
+                    logger.info("Received connection from %r", conn)
                     rlist.append(conn)
                 else:
                     try:
@@ -53,37 +54,44 @@ class RRDThread(threading.Thread):
                     except EOFError:
                         rlist.remove(obj)
                     else:
-                        obj.send(self.process(rrdtool, request))
+                        obj.send(self.process(request))
 
         for obj in rlist:
             obj.close()
-
-        rrdtool.stdin.write('quit\n')
-        rrdtool.wait()
+            
+        self.write('quit\n')
+        self.rrdtool.wait()
+        
+    def write(self, data):
+        logger.debug("> %r", data)
+        self.rrdtool.stdin.write(data)
 
     def consume(self, it):
         for _ in it:
             pass
 
-    def get_lines(self, rrdtool, ignore_error=False):
+    def get_lines(self, ignore_error=False):
         while True:
-            line = rrdtool.stdout.readline().strip()
+            line = self.rrdtool.stdout.readline().strip()
+            logger.debug('< %r', line)
             if line.startswith('OK '):
                 break
             if line.startswith('ERROR: '):
                 raise RRDToolError(line)
             if not ignore_error and line == 'RRDtool 1.4.4  Copyright 1997-2010 by Tobias Oetiker <tobi@oetiker.ch>':
-                self.consume(self.get_lines(rrdtool))
+                self.consume(self.get_lines())
                 raise InvalidCommand
             yield line
 
-    def process(self, rrdtool, request):
+    def process(self, request):
         if len(request) != 4:
             return ClientError
         command, series, args, kwargs = request
         if not (isinstance(command, basestring) and isinstance(series, basestring) \
             and isinstance(args, tuple) and isinstance(kwargs, dict)):
             return ClientError
+        
+        logger.info("Received command: %r %r, %r, %r", command, series, args, kwargs)
 
         filename = os.path.join(settings.TIME_SERIES_PATH, series.encode('utf-8') + '.rrd')
         series_exists = os.path.exists(filename)
@@ -106,14 +114,14 @@ class RRDThread(threading.Thread):
             return NoSuchCommand
 
         try:
-            return processor(rrdtool, filename, *args, **kwargs)
+            return processor(filename, *args, **kwargs)
         except RRDException, e:
             return e
         except Exception, e:
             logger.exception("Unexpected exception raised by processor.")
             return UnexpectedRRDException(e)
 
-    def process_fetch(self, rrdtool, filename, aggregation_type, start=None, end=None, resolution=None):
+    def process_fetch(self, filename, aggregation_type, start=None, end=None, resolution=None):
         command = ['fetch', filename, aggregation_type.upper()]
         if start:
             if resolution:
@@ -126,11 +134,11 @@ class RRDThread(threading.Thread):
         if resolution:
             command.extend(('-r', str(resolution)))
 
-        rrdtool.stdin.write(' '.join(command) + '\n')
+        self.write(' '.join(command) + '\n')
 
         try:
             results = []
-            for line in self.get_lines(rrdtool):
+            for line in self.get_lines():
                 if ': ' not in line:
                     continue
                 ts, val = map(float, line.split(': '))
@@ -147,12 +155,12 @@ class RRDThread(threading.Thread):
 
         return results
 
-    def process_info(self, rrdtool, filename):
-        rrdtool.stdin.write('info %s\n' % filename)
+    def process_info(self, filename):
+        self.write('info %s\n' % filename)
 
         raw_result = {'ds': collections.defaultdict(dict),
                       'rra': collections.defaultdict(dict)}
-        for line in self.get_lines(rrdtool):
+        for line in self.get_lines():
             key, value = line.split(" = ", 1)
             try:
                 value = float(value)
@@ -184,13 +192,13 @@ class RRDThread(threading.Thread):
 
         return result
 
-    def process_exists(self, rrdtool, filename):
+    def process_exists(self, filename):
         return os.path.exists(filename)
 
-    def process_delete(self, rrdtool, filename):
+    def process_delete(self, filename):
         os.unlink(filename)
 
-    def process_create(self, rrdtool, filename, type, start, step, heartbeat, min, max, rras):
+    def process_create(self, filename, type, start, step, heartbeat, min, max, rras):
         min = "U" if min is None else min
         max = "U" if max is None else max
         heartbeat = 48 if heartbeat is None else heartbeat
@@ -210,10 +218,10 @@ class RRDThread(threading.Thread):
             rra['type'] = rra['type'].upper()
             command += " RRA:%(type)s:%(xff).2f:%(steps)d:%(rows)d" % rra
 
-        rrdtool.stdin.write('%s\n' % command)
-        self.consume(self.get_lines(rrdtool))
+        self.write('%s\n' % command)
+        self.consume(self.get_lines())
 
-    def process_update(self, rrdtool, filename, data):
+    def process_update(self, filename, data):
         for i in range(0, len(data), 128):
             update_data = data[i:i+128]
 
@@ -223,10 +231,10 @@ class RRDThread(threading.Thread):
                 command.append('%d:%f' % (ts, value))
             command = " ".join(command) + '\n'
 
-            rrdtool.stdin.write(command)
-            self.consume(self.get_lines(rrdtool))
+            self.write(command)
+            self.consume(self.get_lines())
     
-    def process_list(self, rrdtool, series):
+    def process_list(self, series):
         return [fn[:-4] for fn in os.listdir(settings.TIME_SERIES_PATH) if fn.endswith('.rrd')]
 
 class RRDClient(object):
