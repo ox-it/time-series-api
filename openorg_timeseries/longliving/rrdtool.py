@@ -72,8 +72,9 @@ class RRDThread(threading.Thread):
 
     def get_lines(self, ignore_error=False):
         while True:
-            line = self.rrdtool.stdout.readline().strip()
+            line = self.rrdtool.stdout.readline()
             logger.debug('< %r', line)
+            line = line.strip()
             if line.startswith('OK '):
                 break
             if line.startswith('ERROR: '):
