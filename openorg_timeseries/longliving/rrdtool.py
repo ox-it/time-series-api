@@ -25,7 +25,7 @@ class UnexpectedRRDException(RRDException): pass
 logger = logging.getLogger(__name__)
 
 class RRDThread(threading.Thread):
-    SERIES_RE = re.compile(r'^[a-zA-Z\d_:-]{1,64}$')
+    SERIES_RE = re.compile(r'^[a-zA-Z\d_:.-]{1,64}$')
 
     def __init__(self, bail):
         self._bail = bail
@@ -92,7 +92,7 @@ class RRDThread(threading.Thread):
             and isinstance(args, tuple) and isinstance(kwargs, dict)):
             return ClientError
         
-        logger.info("Received command: %r %r, %r, %r", command, series, args, kwargs)
+        #logger.info("Received command: %r %r, %r, %r", command, series, args, kwargs)
 
         filename = os.path.join(settings.TIME_SERIES_PATH, series.encode('utf-8') + '.rrd')
         series_exists = os.path.exists(filename)
