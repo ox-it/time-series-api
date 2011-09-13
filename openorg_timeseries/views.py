@@ -114,7 +114,7 @@ class FetchView(JSONPView, TextView, TabularView):
         }
 
         for series in series_names:
-            filename = os.path.join(settings.TIMESERIES_PATH, series + '.rrd')
+            filename = os.path.join(settings.TIME_SERIES_PATH, series + '.rrd')
             if not os.path.exists(filename):
                 context['series'][series] = {'error': 'not-found'}
                 continue
