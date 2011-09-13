@@ -200,7 +200,7 @@ class GraphView(HTMLView, JSONPView):
 class ListView(HTMLView, JSONPView, TabularView):
     def get(self, request):
         client = RRDClient()
-        context = {'names': client.list()}
+        context = {'names': sorted(client.list())}
         return self.render(request, context, 'timeseries/list')
 
     def get_table(self, request, context):
