@@ -142,10 +142,6 @@ class FetchView(JSONPView, TextView, TabularView):
                 val = str(val) if val==val else ''
                 yield (name, datum['ts'].strftime('%Y-%m-%dT%H:%M:%SZ'), val)
 
-    @renderer(format='csv', mimetypes=('text/csv',), name="CSV")
-    def render_csv(self, request, context, template_name):
-        return HttpResponse(self.spool_csv(context), mimetype="text/csv")
-
 class InfoView(HTMLView, JSONPView, RDFView):
     series_types = {'gauge': 'rate', 'counter': 'rate', 'absolute': 'cumulative'}
 
