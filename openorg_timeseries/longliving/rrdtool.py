@@ -146,7 +146,11 @@ class RRDThread(threading.Thread):
                 ts, val = int(ts), float(val)
                 if val != val: # Catch NaN, and replace with None
                     val = None
-                results.append((datetime.datetime.fromtimestamp(ts), val))
+                try:
+                    results.append((datetime.datetime.fromtimestamp(ts), val))
+                except ValueError:
+                    pass # The timestamp was out of range for a 32-bit machine (i.e. > 2038)
+
         except RRDToolError, e:
             if 'should be less than end' in e.message:
                 results = []
