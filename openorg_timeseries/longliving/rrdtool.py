@@ -9,6 +9,7 @@ import threading
 import time
 
 import processing.connection
+import pytz
 
 from django.conf import settings
 
@@ -235,7 +236,7 @@ class RRDThread(threading.Thread):
 
             command = ["update", filename]
             for ts, value in update_data:
-                ts = time.mktime(ts.timetuple())
+                ts = time.mktime(ts.astimezone(pytz.utc).timetuple())
                 command.append('%d:%f' % (ts, value))
             command = " ".join(command) + '\n'
 
