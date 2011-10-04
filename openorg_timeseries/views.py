@@ -140,7 +140,7 @@ class FetchView(JSONPView, TextView, TabularView):
                 # looking) test.
                 val = datum['val']
                 val = str(val) if val==val else ''
-                yield (name, datum['ts'].strftime('%Y-%m-%dT%H:%M:%SZ'), val)
+                yield (name, datum['ts'].strftime('%Y-%m-%d %H:%M:%S'), val)
 
 class InfoView(HTMLView, JSONPView, RDFView):
     series_types = {'gauge': 'rate', 'counter': 'rate', 'absolute': 'cumulative'}
