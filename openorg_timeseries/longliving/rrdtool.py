@@ -148,7 +148,8 @@ class RRDThread(threading.Thread):
                 if val != val: # Catch NaN, and replace with None
                     val = None
                 try:
-                    results.append((datetime.datetime.fromtimestamp(ts), val))
+                    ts = pytz.utc.localize(datetime.datetime.fromtimestamp(ts))
+                    results.append((ts, val))
                 except ValueError:
                     pass # The timestamp was out of range for a 32-bit machine (i.e. > 2038)
 
@@ -184,7 +185,7 @@ class RRDThread(threading.Thread):
         raw_result['rra'] = [raw_result['rra'][i] for i in sorted(raw_result['rra'])]
 
         result = {
-            'updated': datetime.datetime.fromtimestamp(raw_result['last_update']),
+            'updated': pytz.utc.localize(datetime.datetime.fromtimestamp(raw_result['last_update'])),
             'interval': int(raw_result['step']),
             'type': raw_result['ds']['val']['type'].lower(),
             'value': raw_result['ds']['val']['value'],
