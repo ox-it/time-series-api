@@ -239,6 +239,10 @@ class TimeSeriesDatabase(object):
                          archive['state'][0],
                          archive['state'][1]))
 
+    def flush(self):
+        self._map.flush()
+    def close(self):
+        self._map.close()
 
     series_type = property(lambda self: self._series_type)
     start = property(lambda self: self._start)
