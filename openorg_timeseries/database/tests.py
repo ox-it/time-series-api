@@ -18,13 +18,16 @@ class TimeSeriesDatabaseTestCase(unittest2.TestCase):
                       'interval': 1800,
                       'archives': [{'aggregation_type': 'average',
                                     'aggregation': 1,
-                                    'count': 1000},
-                                   {'aggregation_type': 'min',
+                                    'count': 1000,
+                                    'threshold': 0.5},
+                                   {'aggregation_type': 'average',
                                     'aggregation': 100,
-                                    'count': 2000},
+                                    'count': 2000,
+                                    'threshold': 0.5},
                                    {'aggregation_type': 'max',
                                     'aggregation': 200,
-                                    'count': 500}]}
+                                    'count': 500,
+                                    'threshold': 0.5}]}
 
     class NullDatabase(TimeSeriesDatabase):
         def __init__(self, **kwargs):
@@ -57,12 +60,12 @@ class TimeSeriesDatabaseTestCase(unittest2.TestCase):
 
         old_timestamp = datetime.datetime(2011, 1, 1, 12, 0, 0, tzinfo=pytz.utc)
         timestamp = datetime.datetime(2011, 1, 1, 12, 30, 0, tzinfo=pytz.utc)
-        old_value = float('nan')
+        state = float('nan'), float('nan')
         value = 300
 
-        new_value, data_to_insert = db._combine(db.archives[0], old_timestamp, old_value, timestamp, value)
+        new_value, data_to_insert = db._combine(db.archives[0], old_timestamp, state, timestamp, value)
 
-        self.assertEqual(new_value, 0)
+        self.assertEqual(new_value, (0, 0))
         self.assertEqual(data_to_insert, [value])
 
     def testUpdate(self):
@@ -79,26 +82,12 @@ class TimeSeriesDatabaseTestCase(unittest2.TestCase):
                 self.assertEqual(archive['cycles'], cycles)
                 self.assertEqual(archive['position'], position)
 
-                #db._map.seek(archive['offset'])
-                #data = [(i, db._read(db._value_format)) for i in xrange(archive['count'])]
-                #pprint.pprint(data)
-                #print cycles, position
-
-            stored_data = list(db.fetch('average', 1800, data[0][0], data[-1][0]))
-
-            archive = db.archives[0]
-
-            #pprint.pprint(zip(data, stored_data))
-
-            print len(data), archive['count'], len(data) - archive['count']
-
-            for i, (expected, actual) in enumerate(zip(data, stored_data)):
-                if len(data) - archive['count'] > i:
-                    self.assertEqual(expected[0], actual[0], "Mismatch at index %d" % i)
-                    self.assert_(isnan(actual[1]), "Mismatch at index %d - %r" % (i, actual[1]))
-                else:
-                    self.assertEqual(expected, actual, "Mismatch at index %d" % i)
+            stored_data = list(db.fetch('average', 1800, data[0][0], data[-1][0] + datetime.timedelta(10000)))
+            expected_data = data[-len(stored_data):]
+            for i, (expected, actual) in enumerate(zip(expected_data, stored_data)):
+                self.assertEqual(expected, actual, "Mismatch at index %d" % i)
             self.assertEqual(data[-len(stored_data):][-10:], stored_data[-10:])
+
         finally:
             os.unlink(filename)
 

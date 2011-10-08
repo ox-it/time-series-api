@@ -32,7 +32,7 @@ class TimeSeriesDatabase(object):
 
     _header_format = '<qLLL'
     _header_format_size = struct.calcsize(_header_format)
-    _archive_meta_format = '<LLLLLLf'
+    _archive_meta_format = '<LLLLLLfff'
     _archive_meta_format_size = struct.calcsize(_archive_meta_format)
 
     def __init__(self, filename):
@@ -47,14 +47,15 @@ class TimeSeriesDatabase(object):
 
             self._archives = []
             for i in range(archive_count):
-                aggregation_type, aggregation, count, cycles, position, last_timestamp, last_value = self._read(self._archive_meta_format)
+                aggregation_type, aggregation, count, cycles, position, last_timestamp, threshold, state_a, state_b = self._read(self._archive_meta_format)
                 archive = {'aggregation_type': self._aggregation_types[aggregation_type],
                            'aggregation': aggregation,
                            'count': count,
                            'cycles': cycles,
                            'position': position,
                            'last_timestamp': _from_timestamp(last_timestamp),
-                           'last_value': last_value}
+                           'threshold': threshold,
+                           'state': (state_a, state_b)}
                 self._archives.append(archive)
             pos = self._map.tell()
             for archive in self._archives:
@@ -94,6 +95,7 @@ class TimeSeriesDatabase(object):
                             len(archives)))
 
         for archive in archives:
+            archive['threshold'] = archive.get('threshold') or 0.5
             f.write(struct.pack(cls._archive_meta_format,
                                 cls._aggregation_types_inv[archive['aggregation_type']],
                                 archive['aggregation'],
@@ -101,6 +103,8 @@ class TimeSeriesDatabase(object):
                                 0,
                                 0,
                                 start_timestamp,
+                                archive['threshold'],
+                                float('nan'),
                                 float('nan')))
 
         pos = f.tell()
@@ -124,12 +128,13 @@ class TimeSeriesDatabase(object):
         self._sync_archive_meta()
 
     def _update_archive(self, archive, data):
-        last_timestamp, last_value = archive['last_timestamp'], archive['last_value']
+        last_timestamp, state = archive['last_timestamp'], archive['state']
         data_to_insert = []
         for i, (timestamp, value) in enumerate(data):
-            last_value, new_data_to_insert = self._combine(archive, last_timestamp, last_value, timestamp, value)
+            state, new_data_to_insert = self._combine(archive, last_timestamp, state, timestamp, value)
             data_to_insert.extend(new_data_to_insert)
             last_timestamp = timestamp
+        archive['state'] = state
 
         if len(data) == len(data_to_insert):
             assert [datum[1] for datum in data] == data_to_insert
@@ -137,7 +142,7 @@ class TimeSeriesDatabase(object):
         self._insert_data(archive, data_to_insert)
 
     def _insert_data(self, archive, data):
-        last_timestamp, last_value = archive['last_timestamp'], archive['last_value']
+        last_timestamp, state = archive['last_timestamp'], archive['state']
 
         self._map.seek(archive['offset'] + archive['position'] * self._value_format_size)
         for datum in data:
@@ -148,9 +153,8 @@ class TimeSeriesDatabase(object):
                 archive['cycles'] += 1
                 self._map.seek(archive['offset'])
         archive['last_timestamp'] = last_timestamp + datetime.timedelta(0, archive['aggregation'] * self._interval * len(data))
-        archive['last_value'] = last_value
 
-    def _combine(self, archive, old_timestamp, old_value, timestamp, value):
+    def _combine(self, archive, old_timestamp, state, timestamp, value):
         ots, ts = old_timestamp, timestamp
         old_timestamp, timestamp = _to_timestamp(old_timestamp), _to_timestamp(timestamp)
         interval = self._interval * archive['aggregation']
@@ -161,32 +165,39 @@ class TimeSeriesDatabase(object):
                 intermediates.append(intermediate)
             intermediate += interval
 
+        state_value, state_cumulative = state
+
         data_to_insert = []
         if self._series_type == 'period':
-            if isnan(old_value):
-                old_value = 0
+            if isnan(state_value):
+                state_value, state_cumulative = 0, 0
             last_intermediate = old_timestamp
+            state_cumulative += 1
             for intermediate in intermediates:
                 period = intermediate - last_intermediate
-                intermediate_value, old_value = old_value + period * value, 0
-                data_to_insert.append(intermediate_value / period / archive['aggregation'])
+                intermediate_value, state_value = state_value + period * value, 0
+                if state_cumulative / archive['aggregation'] >= archive['threshold']:
+                    data_to_insert.append(intermediate_value / period / state_cumulative)
+                else:
+                    data_to_insert.append(float('nan'))
+                state_cumulative = 0
                 last_intermediate = intermediate
-            new_value = old_value + (timestamp - last_intermediate) * value
+            state_value = state_value + (timestamp - last_intermediate) * value
         elif self._series_type == 'gauge':
-            if isnan(old_value):
-                old_value = value
+            if isnan(state_value):
+                state_value = value
             last_intermediate = old_timestamp
             for intermediate in intermediates:
-                data_to_insert(old_value + (value - old_value) * (timestamp - intermediate) / (timestamp - old_timestamp))
-            old_value = value
+                data_to_insert(state_value + (value - state_value) * (timestamp - intermediate) / (timestamp - old_timestamp))
+            state_value = value
         elif self._series_type == 'counter':
-            if isnan(old_value):
-                return value, []
-            for intermediate in intermediates:
-                data_to_insert.append()
-            new_value = value
+            if isnan(state_value):
+                state_value = value
+            else:
+                for intermediate in intermediates:
+                    data_to_insert.append()
 
-        return new_value, data_to_insert
+        return (state_value, state_cumulative), data_to_insert
 
     def fetch(self, aggregation_type, interval, period_start, period_end):
         for archive in self._archives:
@@ -195,29 +206,24 @@ class TimeSeriesDatabase(object):
         else:
             raise ValueError("No suitable archive")
 
-        print
-        print period_start, period_end
         period_start, period_end = map(_to_timestamp, [period_start, period_end])
         period_start = math.ceil(period_start / interval) * interval
         period_end = math.floor(period_end / interval) * interval
 
         offset_start = int(period_start - _to_timestamp(self._start)) // interval
         offset_end = int(period_end - _to_timestamp(self._start)) // interval
+        offset_end = min(offset_end, archive['cycles'] * archive['count'] + archive['position']) - 1
 
         seek_to = max(offset_start, (archive['cycles'] - 1) * archive['count'] + archive['position'])
-        print "SEEK", seek_to
         self._map.seek(archive['offset'] + (seek_to % archive['count']) * self._value_format_size)
 
 
-        timestamp = _to_timestamp(self._start) + offset_start * self._interval * archive['aggregation']
-        for i in xrange(offset_start, offset_end + 1):
-            if i <= seek_to:
-                yield _from_timestamp(timestamp), float('nan')
-            else:
-                yield _from_timestamp(timestamp), self._read(self._value_format)
+        timestamp = _to_timestamp(self._start) + seek_to * self._interval * archive['aggregation']
+        for i in xrange(seek_to, offset_end + 1):
             if i % archive['count'] == 0:
                 self._map.seek(archive['offset'])
             timestamp += self._interval * archive['aggregation']
+            yield _from_timestamp(timestamp), self._read(self._value_format)
 
     def _sync_archive_meta(self):
         self._map.seek(self._header_format_size)
@@ -229,7 +235,9 @@ class TimeSeriesDatabase(object):
                          archive['cycles'],
                          archive['position'],
                          _to_timestamp(archive['last_timestamp']),
-                         archive['last_value']))
+                         archive['threshold'],
+                         archive['state'][0],
+                         archive['state'][1]))
 
 
     series_type = property(lambda self: self._series_type)
