@@ -2,6 +2,7 @@ from __future__ import division
 
 import copy
 import datetime
+import logging
 import math
 import mmap
 import os
@@ -20,6 +21,8 @@ def _to_timestamp(dt):
     return time.mktime(dt.astimezone(pytz.utc).timetuple())
 def _from_timestamp(ts):
     return pytz.utc.localize(datetime.datetime.utcfromtimestamp(ts))
+
+logger = logging.getLogger(__name__)
 
 class TimeSeriesDatabase(object):
     _series_types = dict(enumerate('period gauge counter'.split()))
@@ -131,6 +134,9 @@ class TimeSeriesDatabase(object):
         last_timestamp, state = archive['last_timestamp'], archive['state']
         data_to_insert = []
         for i, (timestamp, value) in enumerate(data):
+            if timestamp <= last_timestamp:
+                logger.warning("Datum with timestamp %r ignored (should be after %r)" % (timestamp, last_timestamp))
+                continue
             state, new_data_to_insert = self._combine(archive, last_timestamp, state, timestamp, value)
             data_to_insert.extend(new_data_to_insert)
             last_timestamp = timestamp
