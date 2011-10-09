@@ -9,6 +9,7 @@ import threading
 import time
 
 import processing.connection
+import pytz
 
 from django.conf import settings
 
@@ -146,7 +147,12 @@ class RRDThread(threading.Thread):
                 ts, val = int(ts), float(val)
                 if val != val: # Catch NaN, and replace with None
                     val = None
-                results.append((datetime.datetime.fromtimestamp(ts), val))
+                try:
+                    ts = pytz.utc.localize(datetime.datetime.fromtimestamp(ts))
+                    results.append((ts, val))
+                except ValueError:
+                    pass # The timestamp was out of range for a 32-bit machine (i.e. > 2038)
+
         except RRDToolError, e:
             if 'should be less than end' in e.message:
                 results = []
@@ -179,7 +185,7 @@ class RRDThread(threading.Thread):
         raw_result['rra'] = [raw_result['rra'][i] for i in sorted(raw_result['rra'])]
 
         result = {
-            'updated': datetime.datetime.fromtimestamp(raw_result['last_update']),
+            'updated': pytz.utc.localize(datetime.datetime.fromtimestamp(raw_result['last_update'])),
             'interval': int(raw_result['step']),
             'type': raw_result['ds']['val']['type'].lower(),
             'value': raw_result['ds']['val']['value'],
@@ -231,7 +237,7 @@ class RRDThread(threading.Thread):
 
             command = ["update", filename]
             for ts, value in update_data:
-                ts = time.mktime(ts.timetuple())
+                ts = time.mktime(ts.astimezone(pytz.utc).timetuple())
                 command.append('%d:%f' % (ts, value))
             command = " ".join(command) + '\n'
 
