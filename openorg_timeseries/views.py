@@ -1,8 +1,10 @@
+import datetime
 import httplib
 import os
 import time
 
 import dateutil.parser
+import pytz
 import rdflib
 from rdflib.namespace import RDF
 
@@ -13,7 +15,7 @@ from django.http import HttpResponse
 from django_conneg.views import ContentNegotiatedView, HTMLView, TextView, JSONPView
 from django_conneg.decorators import renderer
 
-from openorg_timeseries.longliving.rrdtool import RRDClient, SeriesNotFound, CFNotAvailable
+from openorg_timeseries.longliving.database import DatabaseClient, SeriesNotFound, TimeSeriesException
 
 TS = rdflib.Namespace('http://purl.org/NET/time-series/')
 
@@ -82,7 +84,7 @@ class FetchView(JSONPView, TextView, TabularView):
             series_names = request.GET['series'].split(',')
         except KeyError:
             return EndpointView._error_view(request, 400, "You must supply a series parameter.")
-        
+
         fetch_arguments = {}
         try:
             fetch_arguments['aggregation_type'] = request.GET['type']
@@ -95,33 +97,35 @@ class FetchView(JSONPView, TextView, TabularView):
             if parameter in request.GET:
                 timestamp = None
                 try:
-                    timestamp = int(time.mktime(dateutil.parser.parse(request.GET[parameter]).timetuple()))
+                    timestamp = dateutil.parser.parse(request.GET[parameter])
+                    if not timestamp.tzinfo:
+                        timestamp = pytz.utc.localize(timestamp)
                 except (OverflowError, ValueError):
                     try:
                         timestamp = int(request.GET[parameter])
+                        timestamp = datetime.datetime.utcfromtimestamp(timestamp)
                     except (OverflowError, ValueError):
                         return EndpointView._error_view(request, 400, "%s should be a W3C-style ISO8601 datetime, or a Unix timestamp." % parameter)
                 fetch_arguments[argument] = timestamp
         if 'resolution' in request.GET:
             try:
-                fetch_arguments['resolution'] = int(request.GET['resolution'])
+                fetch_arguments['interval'] = int(request.GET['resolution'])
             except ValueError:
                 return EndpointView._error_view(request, 400, "resolution should be an integer number of seconds.")
 
-        client = RRDClient()
+        client = DatabaseClient()
         context = {
             'series': {}
         }
 
         for series in series_names:
-            filename = os.path.join(settings.TIME_SERIES_PATH, series + '.rrd')
-            if not os.path.exists(filename):
+            if not client.exists(series):
                 context['series'][series] = {'error': 'not-found'}
                 continue
 
             try:
                 result = client.fetch(series, **fetch_arguments)
-            except CFNotAvailable:
+            except TimeSeriesException:
                 context['series'][series] = {'error':'type-not-available'}
                 continue
             context['series'][series] = {
@@ -139,21 +143,21 @@ class FetchView(JSONPView, TextView, TabularView):
                 # is only available in >=Py2.6, so use this (somewhat weird-
                 # looking) test.
                 val = datum['val']
-                val = str(val) if val==val else ''
-                yield (name, datum['ts'].strftime('%Y-%m-%dT%H:%M:%SZ'), val)
+                val = str(val) if val == val else ''
+                yield (name, datum['ts'].strftime('%Y-%m-%d %H:%M:%S'), val)
 
     @renderer(format='csv', mimetypes=('text/csv',), name="CSV")
     def render_csv(self, request, context, template_name):
-        return HttpResponse(self.spool_csv(context), mimetype="text/csv")
+        return HttpResponse(self._spool_csv(request, context), mimetype="text/csv")
 
 class InfoView(HTMLView, JSONPView, RDFView):
-    series_types = {'gauge': 'rate', 'counter': 'rate', 'absolute': 'cumulative'}
+    series_types = {'period': 'rate', 'gauge': 'rate', 'counter': 'rate', 'absolute': 'cumulative'}
 
     def get(self, request):
-        client = RRDClient()
+        client = DatabaseClient()
         try:
-            series_names = request.GET['series']
-            if series_names == '*':
+            series_names = request.GET.get('series')
+            if series_names is None:
                 series_names = client.list()
             else:
                 series_names = series_names.split(',')
@@ -199,7 +203,7 @@ class GraphView(HTMLView, JSONPView):
 
 class ListView(HTMLView, JSONPView, TabularView):
     def get(self, request):
-        client = RRDClient()
+        client = DatabaseClient()
         context = {'names': sorted(client.list())}
         return self.render(request, context, 'timeseries/list')
 
