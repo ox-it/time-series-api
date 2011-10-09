@@ -246,6 +246,20 @@ class TimeSeriesDatabase(object):
             yield (_from_timestamp(timestamp).astimezone(self.timezone),
                    self._read(self._value_format))
 
+    def info(self):
+        result = {
+            'updated': self._archives[0]['last_timestamp'],
+            'interval': self._interval,
+            'type': self._series_type,
+            'samples': []
+        }
+        for archive in self._archives:
+            result['samples'].append({'type': archive['aggregation_type'],
+                                      'resolution': archive['aggregation'] * self._interval,
+                                      'count': archive['count'],
+                                      'aggregation': archive['aggregation']})
+        return result
+
     def _sync_archive_meta(self):
         self._map.seek(self._header_format_size)
         for archive in self._archives:
