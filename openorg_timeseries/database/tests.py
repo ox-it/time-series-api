@@ -1,9 +1,11 @@
 import datetime
 import math
+import operator
 import os
 import pprint
 import random
 import tempfile
+import time
 
 import mock
 import unittest2
@@ -14,7 +16,6 @@ from .base import TimeSeriesDatabase, _from_timestamp, _to_timestamp, isnan
 
 class TimeSeriesDatabaseTestCase(unittest2.TestCase):
     _create_kwargs = {'series_type': 'period',
-                      'start': pytz.utc.localize(datetime.datetime.utcnow()).replace(minute=0, second=0, microsecond=0) - datetime.timedelta(0, 1800),
                       'interval': 1800,
                       'archives': [{'aggregation_type': 'average',
                                     'aggregation': 1,
@@ -27,12 +28,22 @@ class TimeSeriesDatabaseTestCase(unittest2.TestCase):
                                    {'aggregation_type': 'max',
                                     'aggregation': 200,
                                     'count': 500,
-                                    'threshold': 0.5}]}
+                                    'threshold': 0.5}],
+                      'timezone_name': 'Europe/London'}
+    pytz.utc.localize(datetime.datetime.utcnow()).replace(minute=0, second=0, microsecond=0) - datetime.timedelta(0, 1800),
+
+    # Find a start date as a multiple of all our aggregations, so that aggregating archives
+    # line up properly.
+    _create_start = time.time()
+    _create_start -= _create_start % (_create_kwargs['interval'] * reduce(operator.mul, [a['aggregation'] for a in _create_kwargs['archives']]))
+    _create_kwargs['start'] = _from_timestamp(_create_start)
+
 
     class NullDatabase(TimeSeriesDatabase):
         def __init__(self, **kwargs):
             for key in kwargs:
                 setattr(self, '_' + key, kwargs[key])
+            self._timezone = pytz.timezone(kwargs['timezone_name'])
             self._map = mock.Mock()
 
     def createDatabase(self):
@@ -77,10 +88,10 @@ class TimeSeriesDatabaseTestCase(unittest2.TestCase):
                 data.append((timestamp, i))
             db.update(data)
 
-            for archive in db.archives:
+            for i, archive in enumerate(db.archives):
                 cycles, position = divmod(len(data) // archive['aggregation'], archive['count'])
-                self.assertEqual(archive['cycles'], cycles)
-                self.assertEqual(archive['position'], position)
+                self.assertEqual(archive['cycles'], cycles, "Archive %d (%d/%d)" % (i, cycles, position))
+                self.assertEqual(archive['position'], position, "Archive %d (%d/%d)" % (i, cycles, position))
 
             stored_data = list(db.fetch('average', 1800, data[0][0], data[-1][0] + datetime.timedelta(10000)))
             expected_data = data[-len(stored_data):]

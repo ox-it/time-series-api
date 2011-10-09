@@ -33,7 +33,7 @@ class TimeSeriesDatabase(object):
     _value_format = '<f'
     _value_format_size = struct.calcsize(_value_format)
 
-    _header_format = '<qLLL'
+    _header_format = '<qLLL64s'
     _header_format_size = struct.calcsize(_header_format)
     _archive_meta_format = '<LLLLLLfff'
     _archive_meta_format_size = struct.calcsize(_archive_meta_format)
@@ -44,7 +44,9 @@ class TimeSeriesDatabase(object):
             f = open(filename, 'r+b')
             self._map = mmap.mmap(f.fileno(), 0)
 
-            series_type, start, self._interval, archive_count = self._read(self._header_format)
+            series_type, start, self._interval, archive_count, timezone_name = self._read(self._header_format)
+            self._timezone_name = timezone_name.rstrip('\0')
+            self._timezone = pytz.timezone(self._timezone_name)
             self._series_type = self._series_types[series_type]
             self._start = _from_timestamp(start)
 
@@ -85,17 +87,24 @@ class TimeSeriesDatabase(object):
         self._map.write(struct.pack(fmt, *data))
 
     @classmethod
-    def create(cls, filename, series_type, start, interval, archives):
+    def create(cls, filename, series_type, start, interval, archives, timezone_name=None):
         assert start.tzinfo is not None
         start_timestamp = _to_timestamp(start)
         start_timestamp -= start_timestamp % interval
+
+        timezone_name = timezone_name or 'UTC'
+        if timezone_name not in pytz.all_timezones:
+            raise ValueError("Timezone not recognized.")
+        if len(timezone_name) > 63:
+            raise ValueError("Timezone specifier too long.")
 
         f = open(filename, 'wb')
         f.write(struct.pack(cls._header_format,
                             cls._series_types_inv[series_type],
                             start_timestamp,
                             interval,
-                            len(archives)))
+                            len(archives),
+                            timezone_name))
 
         for archive in archives:
             archive['threshold'] = archive.get('threshold') or 0.5
@@ -206,6 +215,11 @@ class TimeSeriesDatabase(object):
         return (state_value, state_cumulative), data_to_insert
 
     def fetch(self, aggregation_type, interval, period_start, period_end):
+        if not period_end:
+            period_end = pytz.utc.localize(datetime.datetime.utcnow())
+        if not period_start:
+            period_start = period_end - datetime.timedelta(2)
+
         for archive in self._archives:
             if archive['aggregation_type'] == aggregation_type and archive['aggregation'] * self._interval == interval:
                 break
@@ -229,7 +243,8 @@ class TimeSeriesDatabase(object):
             if i % archive['count'] == 0:
                 self._map.seek(archive['offset'])
             timestamp += self._interval * archive['aggregation']
-            yield _from_timestamp(timestamp), self._read(self._value_format)
+            yield (_from_timestamp(timestamp).astimezone(self.timezone),
+                   self._read(self._value_format))
 
     def _sync_archive_meta(self):
         self._map.seek(self._header_format_size)
@@ -254,3 +269,5 @@ class TimeSeriesDatabase(object):
     start = property(lambda self: self._start)
     interval = property(lambda self: self._interval)
     archives = property(lambda self: copy.deepcopy(self._archives))
+    timezone = property(lambda self: self._timezone)
+    timezone_name = property(lambda self: self._timezone_name)
