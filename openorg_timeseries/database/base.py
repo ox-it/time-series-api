@@ -219,6 +219,7 @@ class TimeSeriesDatabase(object):
             period_end = pytz.utc.localize(datetime.datetime.utcnow())
         if not period_start:
             period_start = period_end - datetime.timedelta(2)
+        period_start = max(period_start, self._start)
 
         for archive in self._archives:
             if archive['aggregation_type'] == aggregation_type and archive['aggregation'] * self._interval == interval:
