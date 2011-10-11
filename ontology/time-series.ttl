@@ -13,7 +13,7 @@
 timeseries: a owl:Ontology ;
     rdfs:label "Time-series ontology" ;
     rdfs:comment "The time-series ontology is used to publish metadata about time-series data available through a time-series endpoint. At the moment there isn't an independently-hosted endpoint specification, but there is documentation about the University of Oxford's implementation at <http://time-series.data.ox.ac.uk/documentation/>." ;
-    rdfs:comment "<div><p>The time-series ontology is used to publish metadata about time-series data available through a time-series endpoint.</p><p>At the moment there isn't an independently-hosted endpoint specification, but there is documentation about the University of Oxford's implementation at <a href="http://time-series.data.ox.ac.uk/documentation/">http://time-series.data.ox.ac.uk/documentation/</a>.</p></div>"^^xtypes:XHTML-Fragment ;
+    rdfs:comment "<div><p>The time-series ontology is used to publish metadata about time-series data available through a time-series endpoint.</p><p>At the moment there isn't an independently-hosted endpoint specification, but there is documentation about the University of Oxford's implementation at <a href=\"http://time-series.data.ox.ac.uk/documentation/\">http://time-series.data.ox.ac.uk/documentation/</a>.</p></div>"^^xtypes:XHTML-Fragment ;
     dcterms:publisher <http://oxpoints.oucs.ox.ac.uk/id/23233567> ;
     vann:preferredNamespacePrefix "timeseries" ;
     vann:preferredNamespaceUri timeseries: .
