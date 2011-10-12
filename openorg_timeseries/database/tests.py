@@ -21,12 +21,12 @@ class TimeSeriesDatabaseTestCase(unittest2.TestCase):
                                     'aggregation': 1,
                                     'count': 1000,
                                     'threshold': 0.5},
-                                   {'aggregation_type': 'average',
-                                    'aggregation': 100,
+                                   {'aggregation_type': 'min',
+                                    'aggregation': 20,
                                     'count': 2000,
                                     'threshold': 0.5},
                                    {'aggregation_type': 'max',
-                                    'aggregation': 200,
+                                    'aggregation': 50,
                                     'count': 500,
                                     'threshold': 0.5}],
                       'timezone_name': 'Europe/London'}
@@ -76,7 +76,7 @@ class TimeSeriesDatabaseTestCase(unittest2.TestCase):
 
         new_value, data_to_insert = db._combine(db.archives[0], old_timestamp, state, timestamp, value)
 
-        self.assertEqual(new_value, (0, 0))
+        self.assertEqual(new_value[0], 0)
         self.assertEqual(data_to_insert, [value])
 
     def testUpdate(self):
@@ -121,6 +121,34 @@ class TimeSeriesDatabaseTestCase(unittest2.TestCase):
                              "Failed to round-trip %r" % test)
             self.assertEqual(_to_timestamp(test), _to_timestamp(_from_timestamp(_to_timestamp(test))))
 
+    def testWithGap(self):
+        """
+        Make sure aggregation works when we have gaps
+        """
+        filename, db = self.createDatabase()
+        try:
+            data, timestamp = [], db.start
+            for i in xrange(100):
+                timestamp += datetime.timedelta(0, random.randrange(1, 5000))
+                data.append((timestamp, random.randrange(0, 100)))
+            db.update(data)
 
+            for archive in db.archives:
+                stored_data = list(db.fetch(archive['aggregation_type'],
+                                            archive['aggregation'] * db.interval,
+                                            db.start,
+                                            timestamp))
+                # The following lines are useful for debugging a failing test
+                #print
+                #print '=' * 80
+                #print '\n'.join('%s,%s' % (ts.strftime('%Y-%m-%d %H:%M:%S'), unicode(val)) for ts, val in data)
+                #print '-' * 80
+                #print '\n'.join('%s,%s' % (ts.strftime('%Y-%m-%d %H:%M:%S'), unicode(val)) for ts, val in stored_data)
+                #print '=' * 80
+                for ts, val in stored_data:
+                    if not isnan(val):
+                        self.assert_(0 <= val <= 100, "%s is unexpectedly out of range" % val)
+        finally:
+            os.unlink(filename)
 if __name__ == '__main__':
     unittest2.main()

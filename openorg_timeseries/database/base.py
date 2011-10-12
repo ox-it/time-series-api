@@ -180,39 +180,54 @@ class TimeSeriesDatabase(object):
                 intermediates.append(intermediate)
             intermediate += interval
 
-        state_value, state_cumulative = state
-
         data_to_insert = []
         if self._series_type == 'period':
+            default_state = {'average': 0,
+                             'min': float('inf'),
+                             'max': float('-inf')}.get(archive['aggregation_type'])
+            combine_function = {'average': lambda state, value: state + value * period / self.interval / archive['aggregation'],
+                                'min': min,
+                                'max': max}.get(archive['aggregation_type'])
+            state_value, state_count = state
+
             if isnan(state_value):
-                state_value, state_cumulative = 0, 0
+                state_value, state_count = default_state, 0
+
+            state_count += 1
+
             last_intermediate = old_timestamp
-            state_cumulative += 1
             for intermediate in intermediates:
                 period = intermediate - last_intermediate
-                intermediate_value, state_value = state_value + period * value, 0
-                if state_cumulative / archive['aggregation'] >= archive['threshold']:
-                    data_to_insert.append(intermediate_value / period / state_cumulative)
+                if archive['aggregation_type'] == 'average' and (state_value < 0 or value < 0):
+                    raise Exception
+                if state_count / archive['aggregation'] >= archive['threshold']:
+                    data_to_insert.append(combine_function(state_value, value))
                 else:
                     data_to_insert.append(float('nan'))
-                state_cumulative = 0
-                last_intermediate = intermediate
-            state_value = state_value + (timestamp - last_intermediate) * value
+                last_intermediate, state_value, state_count = intermediate, default_state, 0
+
+            period = timestamp - last_intermediate
+            state_value = combine_function(state_value, value)
+            state = state_value, state_count
+
         elif self._series_type == 'gauge':
+            state_value, _ = state
             if isnan(state_value):
                 state_value = value
             last_intermediate = old_timestamp
             for intermediate in intermediates:
                 data_to_insert(state_value + (value - state_value) * (timestamp - intermediate) / (timestamp - old_timestamp))
-            state_value = value
+            state = state_value, _
         elif self._series_type == 'counter':
+            state_value, _ = state
             if isnan(state_value):
                 state_value = value
             else:
                 for intermediate in intermediates:
                     data_to_insert.append()
+            state = state_value, _
 
-        return (state_value, state_cumulative), data_to_insert
+        return state, data_to_insert
 
     def fetch(self, aggregation_type, interval, period_start, period_end):
         if not period_end:
