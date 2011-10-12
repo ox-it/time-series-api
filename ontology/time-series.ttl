@@ -1,0 +1,114 @@
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix vann: <http://purl.org/vocab/vann/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix xtypes: <http://purl.org/xtypes/> .
+
+
+@prefix timeseries: <http://purl.org/NET/time-series/> .
+
+timeseries: a owl:Ontology ;
+    rdfs:label "Time-series ontology" ;
+    rdfs:comment "The time-series ontology is used to publish metadata about time-series data available through a time-series endpoint. At the moment there isn't an independently-hosted endpoint specification, but there is documentation about the University of Oxford's implementation at <http://time-series.data.ox.ac.uk/documentation/>." ;
+    rdfs:comment "<div><p>The time-series ontology is used to publish metadata about time-series data available through a time-series endpoint.</p><p>At the moment there isn't an independently-hosted endpoint specification, but there is documentation about the University of Oxford's implementation at <a href=\"http://time-series.data.ox.ac.uk/documentation/\">http://time-series.data.ox.ac.uk/documentation/</a>.</p></div>"^^xtypes:Fragment-XHTML ;
+    dcterms:publisher <http://oxpoints.oucs.ox.ac.uk/id/23233567> ;
+    vann:preferredNamespacePrefix "timeseries" ;
+    vann:preferredNamespaceUri timeseries: .
+
+
+# Classes
+
+timeseries:AbstractTimeSeries a owl:Class;
+    rdfs:label "time-series superclass" ;
+    rdfs:comment "This is a superclass for all types of time-series (TimeSeries and VirtualTimeSeries)" ;
+    rdfs:isDefinedBy timeseries: .
+
+timeseries:TimeSeries a owl:Class ;
+    rdfs:label "time-series" ;
+    rdfs:comment "A time-series for which data is available through an endpoint implementing the time-series API specification." ;
+    rdfs:subClassOf timeseries:AbstractTimeSeries ;
+    rdfs:isDefinedBy timeseries: .
+
+timeseries:VirtualTimeSeries a owl:Class ;
+    rdfs:label "virtual time-series" ;
+    rdfs:comment "A time-series comprised of some sum of other time-series." ;
+    rdfs:subClassOf timeseries:AbstractTimeSeries ;
+    rdfs:isDefinedBy timeseries: .
+
+
+timeseries:TimeSeriesEndpoint a owl:Class ;
+    rdfs:label "time-series endpoint" ;
+    rdfs:comment "An endpoint that implements the time-series API." ;
+    rdfs:isDefinedBy timeseries: .
+
+timeseries:Sampling a owl:Class ;
+    rdfs:label "sampling" ;
+    rdfs:comment "A specification of data point frequency and aggregation type" ;
+    rdfs:isDefinedBy timeseries: .
+
+timeseries:SamplingType a owl:Class ;
+    rdfs:label "sampling type" ;
+    rdfs:comment "A method used to aggregate data." ;
+    rdfs:isDefinedBy timeseries: .
+
+
+# Properties
+
+timeseries:timeSeries a rdf:Property, owl:ObjectProperty ;
+    rdfs:label "time-series" ;
+    rdfs:comment "Relates a resource to a time-series that contains data about that resource." ;
+    rdfs:range timeseries:AbstractTimeSeries ;
+    rdfs:isDefinedBy timeseries: .
+
+timeseries:resolution a rdf:Property, owl:AnnotationProperty ;
+    rdfs:label "resolution" ;
+    rdfs:comment "The interval in seconds between data points." ;
+    rdfs:domain [ a owl:Class ; owl:unionOf (timeseries:TimeSeries timeseries:Sampling) ];
+    rdfs:range xsd:decimal ;
+    rdfs:isDefinedBy timeseries: .
+
+timeseries:endpoint a rdf:Property, owl:ObjectProperty ;
+    rdfs:label "endpoint" ;
+    rdfs:comment "The time-series endpoint that can be queried for the data in the domain time-series." ;
+    rdfs:domain timeseries:TimeSeries ;
+    rdfs:range timeseries:TimeSeriesEndpoint ;
+    rdfs:isDefinedBy timeseries: .
+
+timeseries:seriesName a rdf:Property, owl:AnnotationProperty ;
+    rdfs:label "series name" ;
+    rdfs:comment "The value to pass as the series query parameter when querying the endpoint." ;
+    rdfs:domain timeseries:TimeSeries ;
+    rdfs:isDefinedBy timeseries: .
+
+timeseries:count a rdf:Property, owl:AnnotationProperty ;
+    rdfs:label "data point count" ;
+    rdfs:comment "The number of data points that are stored in a sample." ;
+    rdfs:domain timeseries:Sampling ;
+    rdfs:range xsd:decimal ;
+    rdfs:isDefinedBy timeseries: .
+
+timeseries:samplingType a rdf:Property, owl:ObjectProperty ;
+    rdfs:label "sampling type" ;
+    rdfs:comment "The method used to aggregate data for the given sampling." ;
+    rdfs:domain timeseries:Sampling ;
+    rdfs:range timeseries:SamplingType ;
+    rdfs:isDefinedBy timeseries: .
+
+
+# Named individuals
+
+timeseries:average a timeseries:SamplingType ;
+    rdfs:label "average" ;
+    rdfs:isDefinedBy timeseries: .
+
+timeseries:min a timeseries:SamplingType ;
+    rdfs:label "minimum" ;
+    rdfs:isDefinedBy timeseries: .
+
+timeseries:max a timeseries:SamplingType ;
+    rdfs:label "maximum" ;
+    rdfs:isDefinedBy timeseries: .
+
