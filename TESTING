@@ -1,0 +1,3 @@
+Run the following to perform tests:
+
+ python -m openorg_timeseries.database.tests
