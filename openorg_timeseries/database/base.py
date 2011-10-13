@@ -144,7 +144,7 @@ class TimeSeriesDatabase(object):
         data_to_insert = []
         for i, (timestamp, value) in enumerate(data):
             if timestamp <= last_timestamp:
-                logger.warning("Datum with timestamp %r ignored (should be after %r)" % (timestamp, last_timestamp))
+                logger.warning("Datum with timestamp '%s' ignored (should be after '%s')" % (timestamp, last_timestamp))
                 continue
             state, new_data_to_insert = self._combine(archive, last_timestamp, state, timestamp, value)
             data_to_insert.extend(new_data_to_insert)
