@@ -150,5 +150,41 @@ class TimeSeriesDatabaseTestCase(unittest2.TestCase):
                         self.assert_(0 <= val <= 100, "%s is unexpectedly out of range" % val)
         finally:
             os.unlink(filename)
+
+    def testBatchUpdate(self):
+        """
+        There was at one point a bug where updating in small groups lead to doubled values
+        at the boundaries. Here we'll create one database in one go, and create the other
+        in batches, before checking that they're identical.
+        """
+        filename_once, db_once = self.createDatabase()
+        filename_batch, db_batch = self.createDatabase()
+        try:
+            data, timestamp = [], db_once.start
+            for i in xrange(200):
+                timestamp += datetime.timedelta(0, random.randrange(1, 1800))
+                data.append((timestamp, random.randrange(0, 100)))
+
+            db_once.update(data)
+            for i in xrange(0, len(data), 5):
+                # Intentionally overlap
+                db_batch.update(data[i:i + 10])
+
+            for i, archive in enumerate(db_once.archives):
+                data_once = list(db_once.fetch(archive['aggregation_type'],
+                                               archive['aggregation'] * db_once.interval,
+                                               db_once.start,
+                                               timestamp))
+                data_batch = list(db_batch.fetch(archive['aggregation_type'],
+                                                 archive['aggregation'] * db_batch.interval,
+                                                 db_batch.start,
+                                                 timestamp))
+                self.assertEqual(data_once, data_batch, "Archive %d" % i)
+
+
+        finally:
+            os.unlink(filename_once)
+            os.unlink(filename_batch)
+
 if __name__ == '__main__':
     unittest2.main()
