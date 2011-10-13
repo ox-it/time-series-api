@@ -150,9 +150,7 @@ class TimeSeriesDatabase(object):
             data_to_insert.extend(new_data_to_insert)
             last_timestamp = timestamp
         archive['state'] = state
-
-        if len(data) == len(data_to_insert):
-            assert [datum[1] for datum in data] == data_to_insert
+        archive['last_timestamp'] = last_timestamp
 
         self._insert_data(archive, data_to_insert)
 
@@ -167,7 +165,6 @@ class TimeSeriesDatabase(object):
                 archive['position'] = 0
                 archive['cycles'] += 1
                 self._map.seek(archive['offset'])
-        archive['last_timestamp'] = last_timestamp + datetime.timedelta(0, archive['aggregation'] * self._interval * len(data))
 
     def _combine(self, archive, old_timestamp, state, timestamp, value):
         ots, ts = old_timestamp, timestamp
