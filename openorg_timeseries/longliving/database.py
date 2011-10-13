@@ -104,13 +104,13 @@ class RequestHandler(threading.Thread):
 
     def process(self):
         if len(self.request) != 4:
-            return ClientError
+            return ClientError('Request did not have four arguments')
         command, series, args, kwargs = self.request
         if not (isinstance(command, basestring) and \
                 (series is None or isinstance(series, basestring)) and \
                 isinstance(args, tuple) and \
                 isinstance(kwargs, dict)):
-            return ClientError
+            return ClientError("Arguments of wrong type")
 
         self.series = series
         if self.series:
@@ -133,7 +133,7 @@ class RequestHandler(threading.Thread):
         try:
             processor = getattr(self, 'process_%s' % command)
         except AttributeError:
-            return NoSuchCommand
+            return NoSuchCommand(command)
 
         try:
             return processor(*args, **kwargs)
