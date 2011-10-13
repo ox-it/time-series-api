@@ -99,7 +99,8 @@ class RequestHandler(threading.Thread):
             self.lock = threading.Lock()
 
         with self.lock:
-            self.client.send(self.process())
+            data = self.process()
+        self.client.send(data)
 
     def process(self):
         if len(self.request) != 4:
