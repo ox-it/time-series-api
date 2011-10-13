@@ -98,14 +98,14 @@ class FetchView(JSONPView, TextView, TabularView):
                 timestamp = None
                 try:
                     timestamp = dateutil.parser.parse(request.GET[parameter])
-                    if not timestamp.tzinfo:
-                        timestamp = pytz.utc.localize(timestamp)
                 except (OverflowError, ValueError):
                     try:
                         timestamp = int(request.GET[parameter])
                         timestamp = datetime.datetime.utcfromtimestamp(timestamp)
                     except (OverflowError, ValueError):
                         return EndpointView._error_view(request, 400, "%s should be a W3C-style ISO8601 datetime, or a Unix timestamp." % parameter)
+                if not timestamp.tzinfo:
+                    timestamp = pytz.utc.localize(timestamp)
                 fetch_arguments[argument] = timestamp
         if 'resolution' in request.GET:
             try:
@@ -130,14 +130,14 @@ class FetchView(JSONPView, TextView, TabularView):
                 continue
             context['series'][series] = {
                 'name': series,
-                'data': [{'ts': ts, 'val': val} for ts, val in result],
+                'data': [{'ts': ts, 'val': val if val == val else None} for ts, val in result],
             }
 
         return self.render(request, context, 'timeseries/fetch')
 
     def get_table(self, request, context):
         for series in context['series']:
-            name, data = series, context['series'][series]['data']
+            name, data = series, context['series'][series].get('data', [])
             for datum in data:
                 # val may be NaN, which is not equal to itself. math.isnan()
                 # is only available in >=Py2.6, so use this (somewhat weird-
