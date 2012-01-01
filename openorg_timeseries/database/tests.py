@@ -2,7 +2,6 @@ import datetime
 import math
 import operator
 import os
-import pprint
 import random
 import tempfile
 import time
@@ -30,7 +29,6 @@ class TimeSeriesDatabaseTestCase(unittest2.TestCase):
                                     'count': 500,
                                     'threshold': 0.5}],
                       'timezone_name': 'Europe/London'}
-    pytz.utc.localize(datetime.datetime.utcnow()).replace(minute=0, second=0, microsecond=0) - datetime.timedelta(0, 1800),
 
     # Find a start date as a multiple of all our aggregations, so that aggregating archives
     # line up properly.
@@ -103,7 +101,8 @@ class TimeSeriesDatabaseTestCase(unittest2.TestCase):
             os.unlink(filename)
 
     def testTimestamps(self):
-        local = pytz.timezone("Europe/London")
+        local1 = pytz.timezone("Europe/London")
+        local2 = pytz.timezone("America/New_York")
         tests = [datetime.datetime(2011, 1, 1, 0, 0),
                  datetime.datetime(2011, 7, 1, 0, 0),
                  datetime.datetime(2011, 3, 27, 1, 0),
@@ -114,11 +113,15 @@ class TimeSeriesDatabaseTestCase(unittest2.TestCase):
         new_tests = []
         for test in tests:
             new_tests.append(test.replace(tzinfo=pytz.utc))
-            new_tests.append(test.replace(tzinfo=local))
+            new_tests.append(test.replace(tzinfo=local1))
+            new_tests.append(test.replace(tzinfo=local2))
         for test in new_tests:
             self.assertEqual(test,
                              _from_timestamp(_to_timestamp(test)),
-                             "Failed to round-trip %r" % test)
+                             "Failed to round-trip %r (%r) -> %r -> %r" % (test,
+                                                                           test.astimezone(pytz.utc).timetuple(),
+                                                                      _to_timestamp(test),
+                                                                      _from_timestamp(_to_timestamp(test))))
             self.assertEqual(_to_timestamp(test), _to_timestamp(_from_timestamp(_to_timestamp(test))))
 
     def testWithGap(self):

@@ -1,5 +1,6 @@
 from __future__ import division
 
+import calendar
 import copy
 import datetime
 import logging
@@ -7,7 +8,6 @@ import math
 import mmap
 import os
 import struct
-import time
 
 import pytz
 
@@ -18,7 +18,8 @@ except AttributeError:
         return isinstance(value, float) and value != value
 
 def _to_timestamp(dt):
-    return time.mktime(dt.astimezone(pytz.utc).timetuple())
+    return calendar.timegm(dt.astimezone(pytz.utc).timetuple())
+
 def _from_timestamp(ts):
     return pytz.utc.localize(datetime.datetime.utcfromtimestamp(ts))
 
@@ -87,12 +88,19 @@ class TimeSeriesDatabase(object):
         self._map.write(struct.pack(fmt, *data))
 
     @classmethod
-    def create(cls, filename, series_type, start, interval, archives, timezone_name=None):
+    def create(cls, filename, series_type, start, interval, archives, timezone_name):
+        assert series_type in cls._series_types_inv
+        assert isinstance(start, datetime.datetime)
         assert start.tzinfo is not None
+        assert isinstance(interval, int)
+        assert isinstance(archives, list)
+
         start_timestamp = _to_timestamp(start)
-        start_timestamp -= start_timestamp % interval
+        start_timestamp -= (-start_timestamp) % interval
 
         timezone_name = timezone_name or 'UTC'
+        if isinstance(timezone_name, unicode):
+            timezone_name = timezone_name.encode('utf-8')
         if timezone_name not in pytz.all_timezones:
             raise ValueError("Timezone not recognized.")
         if len(timezone_name) > 63:
