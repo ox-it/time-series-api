@@ -132,7 +132,7 @@ class CreateView(HTMLView):
 
     @login_required
     def dispatch(self, request):
-        if not request.user.has_perm('add_timeseries'):
+        if not request.user.has_perm('openorg_timeseries.add_timeseries'):
             return self._error_view(request,
                                     {'status_code': 403,
                                      'error': 'lacking-privilege',
