@@ -47,7 +47,7 @@ def with_db(method):
         with self.main_lock:
             lock = self.locks[slug]
             if slug not in self.databases:
-                tsdb_filename, _ = self.get_filenames()
+                tsdb_filename, _ = self.get_filenames(slug)
                 self.databases[slug] = TimeSeriesDatabase(tsdb_filename)
             db = self.databases[slug]
         with lock:
