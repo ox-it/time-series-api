@@ -46,7 +46,10 @@ class TimeSeriesView(JSONView):
                 'notes': value.notes,
                 'is_virtual': value.is_virtual,
             }
-            data.update(value.config)
+            if value.is_virtual:
+                data['equation'] = value.equation
+            else:
+                data['config'] = value.config
             return data
         else:
             return super(TimeSeriesView, self).simplify(value)
