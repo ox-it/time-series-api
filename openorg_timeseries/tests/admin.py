@@ -12,6 +12,25 @@ from django.test import TestCase
 
 from openorg_timeseries.longliving.database import get_client
 
+class ListPermissionTestCase(TestCase):
+    fixtures = ['test_users.json', 'test_timeseries.json']
+
+    def testUnauthorized(self):
+        response = self.client.get('/admin/')
+        self.assertEqual(response.status_code, 401)
+        self.assertTrue('WWW-Authenticate' in response)
+        self.assertEqual(response['WWW-Authenticate'], 'Basic')
+
+
+    def testSuperuser(self):
+        response = self.client.get('/admin/',
+                                   content_type='application/json',
+                                   REMOTE_USER='superuser')
+        body = json.loads(response._get_content())
+        #print body
+
+
+
 class RESTCreationTestCase(TestCase):
     fixtures = ['test_users.json']
 
