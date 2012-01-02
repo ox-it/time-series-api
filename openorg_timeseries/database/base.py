@@ -46,35 +46,35 @@ class TimeSeriesDatabase(object):
 
     def __init__(self, filename):
         self.filename = filename
-        if os.path.exists(filename):
-            f = open(filename, 'r+b')
-            self._map = mmap.mmap(f.fileno(), 0)
+        if not os.path.exists(filename):
+            raise IOError("There is no time-series database to be found at %r" % filename)
 
-            series_type, start, self._interval, archive_count, timezone_name, last = self._read(self._header_format)
-            self._timezone_name = timezone_name.rstrip('\0')
-            self._timezone = pytz.timezone(self._timezone_name)
-            self._series_type = self._series_types[series_type]
-            self._start = _from_timestamp(start)
-            self._last = _from_timestamp(last)
+        f = open(filename, 'r+b')
+        self._map = mmap.mmap(f.fileno(), 0)
 
-            self._archives = []
-            for i in range(archive_count):
-                aggregation_type, aggregation, count, cycles, position, threshold, state_a, state_b = self._read(self._archive_meta_format)
-                archive = {'aggregation_type': self._aggregation_types[aggregation_type],
-                           'aggregation': aggregation,
-                           'count': count,
-                           'cycles': cycles,
-                           'position': position,
-                           'threshold': threshold,
-                           'state': (state_a, state_b)}
-                self._archives.append(archive)
-            pos = self._map.tell()
-            for archive in self._archives:
-                archive['offset'] = pos
-                pos += archive['count'] * self._value_format_size
+        series_type, start, self._interval, archive_count, timezone_name, last = self._read(self._header_format)
+        self._timezone_name = timezone_name.rstrip('\0')
+        self._timezone = pytz.timezone(self._timezone_name)
+        self._series_type = self._series_types[series_type]
+        self._start = _from_timestamp(start)
+        self._last = _from_timestamp(last)
 
-        else:
-            self._map = None
+        self._archives = []
+        for i in range(archive_count):
+            aggregation_type, aggregation, count, cycles, position, threshold, state_a, state_b = self._read(self._archive_meta_format)
+            archive = {'aggregation_type': self._aggregation_types[aggregation_type],
+                       'aggregation': aggregation,
+                       'count': count,
+                       'cycles': cycles,
+                       'position': position,
+                       'threshold': threshold,
+                       'state': (state_a, state_b)}
+            self._archives.append(archive)
+        pos = self._map.tell()
+        for archive in self._archives:
+            archive['offset'] = pos
+            pos += archive['count'] * self._value_format_size
+
 
     def _read(self, fmt, pos=None, whence=None):
         if pos is not None:
