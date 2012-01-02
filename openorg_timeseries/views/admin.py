@@ -58,13 +58,18 @@ class TimeSeriesView(JSONView):
         return dict((k, d.get(k)) for k in keys)
 
 class ListView(TimeSeriesView, HTMLView, JSONPView):
+    @login_required
+    def dispatch(self, request):
+        return super(ListView, self).dispatch(request)
+
     def get(self, request):
+        series = TimeSeries.objects.all().order_by('slug')
+        series = [s for s in series if request.user.has_perm('view_timeseries', s)]
         context = {
-            'series': TimeSeries.objects.all().order_by('slug'),
+            'series': series,
         }
         return self.render(request, context, 'timeseries-admin/index')
 
-    @login_required
     def post(self, request):
         if not request.user.has_perm('add_timeseries'):
             return self._error_view(request,
@@ -113,12 +118,20 @@ class CreateView(HTMLView):
             'archive_formset': forms.ArchiveFormSet(request.POST or None),
         }
 
-    def get(self, request):
-        context = self.common(request)
+    @login_required
+    def dispatch(self, request):
+        if not request.user.has_perm('add_timeseries'):
+            return self._error_view(request,
+                                    {'status_code': 403,
+                                     'error': 'lacking-privilege',
+                                     'message': 'The authenticated user lacks the necessary privilege to create a new time-series'},
+                                    'timeseries-admin/index-lacking-privilege')
+        super(CreateView, self).dispatch(request, self.common(request))
+
+    def get(self, request, context):
         return self.render(request, context, 'timeseries-admin/create')
 
-    def post(self, request):
-        context = self.common(request)
+    def post(self, request, context):
         form, archive_formset = context['form'], context['archive_formset']
         if not (form.is_valid() and archive_formset.is_valid()):
             return self.render(request, context, 'timeseries-admin/create')
