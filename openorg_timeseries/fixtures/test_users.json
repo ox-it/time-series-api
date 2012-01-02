@@ -2,7 +2,14 @@
   "pk": 1,
   "fields": {"username": "superuser",
              "is_superuser": true,
-             "is_staff": true,
-             "password": "sha1$8d484$0d6b8ee1adf331702e1bb6a6737dcd7953dee8f7"
+             "is_staff": true
             }
- }]
+ },
+ {"model": "auth.User",
+  "pk": 2,
+  "fields": {"username": "unprivileged",
+             "is_superuser": false,
+             "is_staff": false
+            }
+ }
+ ]

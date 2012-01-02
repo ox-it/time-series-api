@@ -34,6 +34,11 @@ class RESTCreationTestCase(TestCase):
         self.assertTrue('WWW-Authenticate' in response)
         self.assertEqual(response['WWW-Authenticate'], 'Basic')
 
+    def testUnprivileged(self):
+        response = self.client.post('/admin/',
+                                    REMOTE_USER='unprivileged')
+        self.assertEqual(response.status_code, 403)
+
     def testWrongContentType(self):
         response = self.client.post('/admin/',
                                     data=self.real_timeseries,
