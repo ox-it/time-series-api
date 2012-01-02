@@ -34,9 +34,14 @@ class TimeSeriesDatabase(object):
     _value_format = '<f'
     _value_format_size = struct.calcsize(_value_format)
 
-    _header_format = '<qLLL64s'
+    _header_format = '<qLLL64sL'
     _header_format_size = struct.calcsize(_header_format)
-    _archive_meta_format = '<LLLLLLfff'
+
+    # For recording the most recent timestamp
+    _last_format = '<L'
+    _last_offset = struct.calcsize(_header_format[:-1])
+
+    _archive_meta_format = '<LLLLLfff'
     _archive_meta_format_size = struct.calcsize(_archive_meta_format)
 
     def __init__(self, filename):
@@ -45,21 +50,21 @@ class TimeSeriesDatabase(object):
             f = open(filename, 'r+b')
             self._map = mmap.mmap(f.fileno(), 0)
 
-            series_type, start, self._interval, archive_count, timezone_name = self._read(self._header_format)
+            series_type, start, self._interval, archive_count, timezone_name, last = self._read(self._header_format)
             self._timezone_name = timezone_name.rstrip('\0')
             self._timezone = pytz.timezone(self._timezone_name)
             self._series_type = self._series_types[series_type]
             self._start = _from_timestamp(start)
+            self._last = _from_timestamp(last)
 
             self._archives = []
             for i in range(archive_count):
-                aggregation_type, aggregation, count, cycles, position, last_timestamp, threshold, state_a, state_b = self._read(self._archive_meta_format)
+                aggregation_type, aggregation, count, cycles, position, threshold, state_a, state_b = self._read(self._archive_meta_format)
                 archive = {'aggregation_type': self._aggregation_types[aggregation_type],
                            'aggregation': aggregation,
                            'count': count,
                            'cycles': cycles,
                            'position': position,
-                           'last_timestamp': _from_timestamp(last_timestamp),
                            'threshold': threshold,
                            'state': (state_a, state_b)}
                 self._archives.append(archive)
@@ -112,7 +117,8 @@ class TimeSeriesDatabase(object):
                             start_timestamp,
                             interval,
                             len(archives),
-                            timezone_name))
+                            timezone_name,
+                            start_timestamp))
 
         for archive in archives:
             archive['threshold'] = archive.get('threshold') or 0.5
@@ -122,7 +128,6 @@ class TimeSeriesDatabase(object):
                                 archive['count'],
                                 0,
                                 0,
-                                start_timestamp,
                                 archive['threshold'],
                                 float('nan'),
                                 float('nan')))
@@ -146,9 +151,10 @@ class TimeSeriesDatabase(object):
         for archive in self._archives:
             self._update_archive(archive, data)
         self._sync_archive_meta()
+        self._sync_last_timestamp(data[-1][0])
 
     def _update_archive(self, archive, data):
-        last_timestamp, state = archive['last_timestamp'], archive['state']
+        last_timestamp, state = self._last, archive['state']
         data_to_insert = []
         for i, (timestamp, value) in enumerate(data):
             if timestamp <= last_timestamp:
@@ -158,12 +164,11 @@ class TimeSeriesDatabase(object):
             data_to_insert.extend(new_data_to_insert)
             last_timestamp = timestamp
         archive['state'] = state
-        archive['last_timestamp'] = last_timestamp
 
         self._insert_data(archive, data_to_insert)
 
     def _insert_data(self, archive, data):
-        last_timestamp, state = archive['last_timestamp'], archive['state']
+        last_timestamp, state = self._last, archive['state']
 
         self._map.seek(archive['offset'] + archive['position'] * self._value_format_size)
         for datum in data:
@@ -269,7 +274,7 @@ class TimeSeriesDatabase(object):
 
     def info(self):
         result = {
-            'updated': self._archives[0]['last_timestamp'],
+            'updated': self._last,
             'interval': self._interval,
             'type': self._series_type,
             'samples': []
@@ -290,10 +295,15 @@ class TimeSeriesDatabase(object):
                          archive['count'],
                          archive['cycles'],
                          archive['position'],
-                         _to_timestamp(archive['last_timestamp']),
                          archive['threshold'],
                          archive['state'][0],
                          archive['state'][1]))
+
+    def _sync_last_timestamp(self, last):
+        self._last = last
+        self._map.seek(self._last_offset)
+        self._map.write(struct.pack(self._last_format,
+                                    _to_timestamp(self._last)))
 
     def flush(self):
         self._map.flush()
@@ -306,3 +316,4 @@ class TimeSeriesDatabase(object):
     archives = property(lambda self: copy.deepcopy(self._archives))
     timezone = property(lambda self: self._timezone)
     timezone_name = property(lambda self: self._timezone_name)
+    last = property(lambda self: self._last)
