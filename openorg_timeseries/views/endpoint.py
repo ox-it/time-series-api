@@ -15,7 +15,7 @@ from django.http import HttpResponse
 from django_conneg.views import ContentNegotiatedView, HTMLView, TextView, JSONPView
 from django_conneg.decorators import renderer
 
-from openorg_timeseries.longliving.database import DatabaseClient, SeriesNotFound, TimeSeriesException
+from openorg_timeseries.longliving.database import get_client, SeriesNotFound, TimeSeriesException
 
 TS = rdflib.Namespace('http://purl.org/NET/time-series/')
 
@@ -113,7 +113,7 @@ class FetchView(JSONPView, TextView, TabularView):
             except ValueError:
                 return EndpointView._error_view(request, 400, "resolution should be an integer number of seconds.")
 
-        client = DatabaseClient()
+        client = get_client()
         context = {
             'series': {}
         }
@@ -150,7 +150,7 @@ class InfoView(HTMLView, JSONPView, RDFView):
     series_types = {'period': 'rate', 'gauge': 'rate', 'counter': 'rate', 'absolute': 'cumulative'}
 
     def get(self, request):
-        client = DatabaseClient()
+        client = get_client()
         try:
             series_names = request.GET.get('series')
             if series_names is None:

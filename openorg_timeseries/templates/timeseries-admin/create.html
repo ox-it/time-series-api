@@ -1,0 +1,41 @@
+{% extends "timeseries-admin/base.html" %}
+
+{% block body %}
+<article>
+  <h1>Create new time-series</h1>
+  
+  <form method="post" action=".">{% csrf_token %}
+  <table>
+    <tbody>{{ form.as_table }}</tbody>
+    
+  </table>
+  
+  <h2>Archives</h2>
+  {{ archive_formset.management_form }}
+  {{ archive_formset.errors }}
+  <table>
+    <thead>
+      <tr>
+        <th>Aggregation type</th>
+        <th title="Number of initial data points per stored data point">Aggregation</th>
+        <th title="Number of data points to remember">Count</th>
+      </tr>
+    </thead>
+    <tbody>{% for form in archive_formset.forms %}
+      <tr>
+        <td>{{ form.aggregation_type }}</td>
+        <td>{{ form.aggregation }}</td>
+        <td>{{ form.count }}</td>
+    {% endfor %}</tbody>
+  </table>
+  
+  <tfoot>
+      <tr>
+        <td colspan="2">
+          <input type="submit" value="Add"/>
+        </td>
+      </tr>
+    </tfoot>
+  </form>
+</article>
+{% endblock %}

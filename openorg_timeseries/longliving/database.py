@@ -7,13 +7,11 @@ import functools
 import logging
 import os
 import re
-import select
-import subprocess
 import sys
 import threading
 import time
 
-import processing.connection
+import processing.managers
 
 from django.conf import settings
 from openorg_timeseries.database import TimeSeriesDatabase
@@ -43,6 +41,22 @@ def requireNotExists(f):
         return f(self, *args, **kwargs)
     return g
 
+def with_db(method):
+    @functools.wraps(method)
+    def f(self, slug, *args, **kwargs):
+        with self.main_lock:
+            lock = self.locks[slug]
+            if slug not in self.databases:
+                tsdb_filename, _ = self.get_filenames()
+                self.databases[slug] = TimeSeriesDatabase(tsdb_filename)
+            db = self.databases[slug]
+        with lock:
+            return method(self, db, *args, **kwargs)
+    return f
+
+class DatabaseManager(processing.managers.BaseManager):
+    get_client = processing.managers.CreatorMethod(typeid='get_client')
+
 class DatabaseThread(threading.Thread):
     def __init__(self, bail):
         self._bail = bail
@@ -50,34 +64,65 @@ class DatabaseThread(threading.Thread):
 
     def run(self):
         self.databases = {}
-        self.lock = threading.Lock()
+        self.main_lock = threading.Lock()
         self.locks = collections.defaultdict(threading.Lock)
 
-        listener = processing.connection.Listener(('localhost', settings.TIME_SERIES_PORT))
+        for path in ('tsdb', 'csv'):
+            path = os.path.join(settings.TIME_SERIES_PATH, path)
+            if not os.path.exists(path):
+                os.makedirs(path)
 
-        rlist = [listener._listener._socket]
+        def get_client_func():
+            return _DatabaseClient(settings.TIME_SERIES_PATH, self.databases, self.main_lock, self.locks)
 
-        while not self._bail.isSet():
-            rlist_ready, _, _ = select.select(rlist, (), (), 1)
-            if not rlist_ready:
-                continue
+        class DatabaseManager(processing.managers.BaseManager):
+            get_client = processing.managers.CreatorMethod(get_client_func, typeid='get_client')
 
-            for obj in rlist_ready:
-                if obj is listener._listener._socket:
-                    conn = listener.accept()
-                    logger.info("Received connection from %r", conn)
-                    rlist.append(conn)
-                else:
-                    try:
-                        request = obj.recv()
-                    except EOFError:
-                        rlist.remove(obj)
-                    else:
-                        rh = RequestHandler(self.databases, self.lock, self.locks, request, obj)
-                        rh.run()
+        self.manager = DatabaseManager(**settings.TIME_SERIES_SERVER_ARGS)
 
-        for obj in rlist:
-            obj.close()
+        #self.bail_thread = threading.Thread(target=self.bail_watcher)
+        #self.bail_thread.start()
+
+        self.manager.start()
+
+        self._bail.wait()
+        self.manager.shutdown()
+
+class _DatabaseClient(object):
+    def __init__(self, path, databases, main_lock, locks):
+        self.path = path
+        self.databases = databases
+        self.main_lock = main_lock
+        self.locks = locks
+
+    def get_filenames(self, slug):
+        return (os.path.join(self.path, 'tsdb', slug + '.tsdb'),
+                os.path.join(self.path, 'csv', slug + '.csv'))
+
+    def create(self, slug, series_type, start, interval, archives, timezone_name):
+        with self.main_lock:
+            lock = self.locks[slug]
+        with lock:
+            tsdb_filename, csv_filename = self.get_filenames(slug)
+            if os.path.exists(tsdb_filename):
+                raise SeriesAlreadyExists
+            db = TimeSeriesDatabase.create(tsdb_filename, series_type, start, interval, archives, timezone_name)
+            with open(csv_filename, 'w') as f:
+                pass
+            with self.main_lock:
+                self.databases[slug] = db
+
+    @with_db
+    def get_config(self, db):
+        archives = []
+        for archive in db.archives:
+            archives.append(dict((k, archive[k]) for k in ('aggregation_type', 'aggregation', 'count')))
+        return {'start': db.start,
+                'interval': db.interval,
+                'series_type': db.series_type,
+                'timezone_name': db.timezone_name,
+                'archives': archives}
+
 
 class RequestHandler(threading.Thread):
     SERIES_RE = re.compile(r'^[a-zA-Z\d_:.-]{1,64}$')
@@ -178,38 +223,9 @@ class RequestHandler(threading.Thread):
     def process_list(self):
         return [fn[:-5] for fn in os.listdir(settings.TIME_SERIES_PATH) if fn.endswith('.tsdb')]
 
-class DatabaseClient(object):
-    def __init__(self):
-        self.client = processing.connection.Client(('localhost', settings.TIME_SERIES_PORT))
-
-    def command(self, command, series, *args, **kwargs):
-        self.client.send((command, series, args, kwargs))
-        value = self.client.recv()
-        if isinstance(value, TimeSeriesException):
-            raise value
-        else:
-            return value
-
-    def fetch(self, series, aggregation_type, interval=None, start=None, end=None):
-        return self.command('fetch', series, aggregation_type, interval, start, end)
-
-    def info(self, series):
-        return self.command('info', series)
-
-    def exists(self, series):
-        return self.command('exists', series)
-
-    def delete(self, series):
-        return self.command('delete', series)
-
-    def create(self, series, series_type, start, interval, archives, timezone_name=None):
-        return self.command('create', series, series_type, start, interval, archives, timezone_name)
-
-    def update(self, series, data):
-        return self.command('update', series, data)
-
-    def list(self):
-        return self.command('list', None)
+def get_client():
+    manager = DatabaseManager.from_address(**settings.TIME_SERIES_SERVER_ARGS)
+    return manager.get_client()
 
 def run():
     bail = threading.Event()
