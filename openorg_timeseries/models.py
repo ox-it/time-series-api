@@ -26,7 +26,7 @@ AGGREGATION_TYPE_CHOICES = (
 )
 
 class TimeSeries(models.Model):
-    slug = models.SlugField(db_index=True)
+    slug = models.SlugField(unique=True, db_index=True)
     title = models.CharField(max_length=80)
     notes = models.TextField(blank=True)
     is_public = models.BooleanField(default=True)
@@ -112,11 +112,13 @@ class TimeSeries(models.Model):
         #    else:
         #        self.start = tz.localize(self.start)
 
-        if not self.is_virtual and not self.pk:
-            database_client = get_client()
-            database_client.create(self.slug, **self.config)
+        create_timeseries = not self.is_virtual and not self.pk
 
         super(TimeSeries, self).save(*args, **kwargs)
+
+        if create_timeseries:
+            database_client = get_client()
+            database_client.create(self.slug, **self.config)
 
         if self.is_virtual:
             self.depends_on = TimeSeries.objects.filter(slug__in=equation.get_slugs())

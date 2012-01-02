@@ -1,3 +1,4 @@
+import httplib
 import urllib
 import urlparse
 
@@ -6,6 +7,7 @@ try:
 except ImportError:
     import simplejson as json
 
+from django.db import IntegrityError
 from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.core.exceptions import PermissionDenied
@@ -105,7 +107,15 @@ class ListView(TimeSeriesView, HTMLView, JSONPView):
                                          'field': key,
                                          'message': 'Field "%s" was missing.' % key},
                                         'timeseries-admin/index-missing-field')
-        time_series.save()
+        try:
+            time_series.save()
+        except IntegrityError:
+            # A time-series already exists with the desired slug
+            return self._error_view(request,
+                                    {'status_code': httplib.CONFLICT,
+                                     'error': 'already-exists',
+                                     'message': 'A time-series already exists with the slug %r.' % time_series.slug},
+                                    'timeseries-admin/index-already-exists')
         for perm in ('view_timeseries', 'append_timeseries', 'change_timeseries', 'delete_timeseries'):
             request.user.grant(perm, time_series)
         return self.render(request,

@@ -24,5 +24,12 @@
       "delete_timeseries": true,
       "append_timeseries": true
     }
+  },
+  {
+    "pk": 3,
+    "model": "openorg_timeseries.TimeSeries",
+    "fields": {
+      "slug": "already-existing"
+    }
   }
 ]

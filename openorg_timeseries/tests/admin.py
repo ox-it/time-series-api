@@ -1,4 +1,5 @@
 import base64
+import copy
 import unittest
 
 try:
@@ -9,7 +10,9 @@ except ImportError:
 import dateutil.parser
 from django.conf import settings
 from django.test import TestCase
+from django.contrib.auth.models import User
 
+from openorg_timeseries.models import TimeSeries
 from openorg_timeseries.longliving.database import get_client
 
 class ListPermissionTestCase(TestCase):
@@ -42,7 +45,7 @@ class ListPermissionTestCase(TestCase):
 
 
 class RESTCreationTestCase(TestCase):
-    fixtures = ['test_users.json']
+    fixtures = ['test_users.json', 'test_timeseries.json']
 
     real_timeseries = {'slug': 'test',
                        'title': 'Title',
@@ -90,3 +93,17 @@ class RESTCreationTestCase(TestCase):
         original_config['start'] = dateutil.parser.parse(original_config['start'])
 
         self.assertEqual(config, original_config)
+
+    def testCreateAlreadyExisting(self):
+        data = copy.deepcopy(self.real_timeseries)
+        data['slug'] = 'already-existing'
+
+        TimeSeries.objects.get(slug='already-existing')
+
+        response = self.client.post('/admin/',
+                                    data=json.dumps(data),
+                                    content_type='application/json',
+                                    REMOTE_USER='withaddperm')
+
+        # Check that we get a conflict response
+        self.assertEqual(response.status_code, 409)
