@@ -71,7 +71,7 @@ class ListView(TimeSeriesView, HTMLView, JSONPView):
         return self.render(request, context, 'timeseries-admin/index')
 
     def post(self, request):
-        if not request.user.has_perm('add_timeseries'):
+        if not request.user.has_perm('openorg_timeseries.add_timeseries'):
             return self._error_view(request,
                                     {'status_code': 403,
                                      'error': 'lacking-privilege',
@@ -106,6 +106,8 @@ class ListView(TimeSeriesView, HTMLView, JSONPView):
                                          'message': 'Field "%s" was missing.' % key},
                                         'timeseries-admin/index-missing-field')
         time_series.save()
+        for perm in ('view_timeseries', 'append_timeseries', 'change_timeseries', 'delete_timeseries'):
+            request.user.grant(perm, time_series)
         return self.render(request,
                            {'status_code': 201,
                             'additional_headers': {'Location': request.build_absolute_uri(time_series.get_absolute_url())}},

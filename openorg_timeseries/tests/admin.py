@@ -21,14 +21,24 @@ class ListPermissionTestCase(TestCase):
         self.assertTrue('WWW-Authenticate' in response)
         self.assertEqual(response['WWW-Authenticate'], 'Basic')
 
-
-    def testSuperuser(self):
+    def getTimeSeries(self, username):
         response = self.client.get('/admin/',
                                    content_type='application/json',
-                                   REMOTE_USER='superuser')
+                                   REMOTE_USER=username)
         body = json.loads(response._get_content())
-        #print body
+        return set(s['slug'] for s in body['series'])
 
+    def testSuperuser(self):
+        series = self.getTimeSeries("superuser")
+        self.assertEqual(series, set(['perm-test-one', 'perm-test-two']))
+
+    def testUnprivileged(self):
+        series = self.getTimeSeries("unprivileged")
+        self.assertEqual(series, set())
+
+    def testObjectPerm(self):
+        series = self.getTimeSeries("withobjectperm")
+        self.assertEqual(series, set(['perm-test-one']))
 
 
 class RESTCreationTestCase(TestCase):
@@ -68,7 +78,7 @@ class RESTCreationTestCase(TestCase):
         response = self.client.post('/admin/',
                                     data=json.dumps(self.real_timeseries),
                                     content_type='application/json',
-                                    REMOTE_USER='superuser')
+                                    REMOTE_USER='withaddperm')
 
         self.assertEqual(response.status_code, 201)
         self.assertTrue('Location' in response)

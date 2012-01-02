@@ -25,6 +25,7 @@ MIDDLEWARE_CLASSES = (
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
     'django.contrib.auth.backends.RemoteUserBackend',
+    'object_permissions.backend.ObjectPermBackend',
 )
 
 TIME_SERIES_SERVER_ARGS = {'address': ('localhost', 18696),

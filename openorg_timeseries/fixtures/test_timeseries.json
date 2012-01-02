@@ -1,0 +1,28 @@
+[
+  {
+    "pk": 1,
+    "model": "openorg_timeseries.TimeSeries",
+    "fields": {
+      "slug": "perm-test-one"
+    }
+  },
+  {
+    "pk": 2,
+    "model": "openorg_timeseries.TimeSeries",
+    "fields": {
+      "slug": "perm-test-two"
+    }
+  },
+  {
+    "pk": 1,
+    "model": "openorg_timeseries.TimeSeries_perms",
+    "fields": {
+      "user": 3,
+      "obj": 1,
+      "view_timeseries": true,
+      "change_timeseries": true,
+      "delete_timeseries": true,
+      "append_timeseries": true
+    }
+  }
+]

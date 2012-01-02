@@ -139,6 +139,5 @@ class TimeSeries(models.Model):
 object_permissions.register(['view_timeseries',
                              'append_timeseries',
                              'change_timeseries',
-                             'delete_timeseries',
-                             'report_timeseries'],
+                             'delete_timeseries'],
                             TimeSeries, 'openorg_timeseries')
