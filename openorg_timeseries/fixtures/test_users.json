@@ -1,15 +1,20 @@
-[{"model": "auth.User",
-  "pk": 1,
-  "fields": {"username": "superuser",
-             "is_superuser": true,
-             "is_staff": true
-            }
- },
- {"model": "auth.User",
-  "pk": 2,
-  "fields": {"username": "unprivileged",
-             "is_superuser": false,
-             "is_staff": false
-            }
- }
- ]
+[
+  {
+    "pk": 1, 
+    "model": "auth.User", 
+    "fields": {
+      "username": "superuser", 
+      "is_superuser": true, 
+      "is_staff": true
+    }
+  }, 
+  {
+    "pk": 2, 
+    "model": "auth.User", 
+    "fields": {
+      "username": "unprivileged", 
+      "is_superuser": false, 
+      "is_staff": false
+    }
+  }
+]
