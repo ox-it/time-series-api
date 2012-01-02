@@ -87,13 +87,20 @@ class RESTCreationTestCase(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertTrue('Location' in response)
 
+        # Check that the config matches that we supplied
         client = get_client()
         config = client.get_config(self.real_timeseries['slug'])
-
         original_config = dict(self.real_timeseries['config'])
+        # We provided an ISO8601 timestamp, which will have been converted to a datetime
         original_config['start'] = dateutil.parser.parse(original_config['start'])
-
         self.assertEqual(config, original_config)
+
+        # Check that we have permissions to do everything to this timeseries
+        time_series = TimeSeries.objects.get(slug=self.real_timeseries['slug'])
+        user = User.objects.get(username='withaddperm')
+        self.assertEqual(set(user.get_perms(time_series)),
+                         set(['view_timeseries', 'change_timeseries',
+                              'append_timeseries', 'delete_timeseries']))
 
     def testCreateAlreadyExisting(self):
         data = copy.deepcopy(self.real_timeseries)
