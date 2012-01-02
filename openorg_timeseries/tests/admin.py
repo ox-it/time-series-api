@@ -33,7 +33,8 @@ class ListPermissionTestCase(TestCase):
 
     def testSuperuser(self):
         series = self.getTimeSeries("superuser")
-        self.assertEqual(series, set(['perm-test-one', 'perm-test-two']))
+        expected_series = set(ts.slug for ts in TimeSeries.objects.all())
+        self.assertEqual(series, expected_series)
 
     def testUnprivileged(self):
         series = self.getTimeSeries("unprivileged")
