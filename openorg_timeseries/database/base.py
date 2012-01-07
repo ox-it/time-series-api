@@ -226,7 +226,7 @@ class TimeSeriesDatabase(object):
                 state_value = value
             last_intermediate = old_timestamp
             for intermediate in intermediates:
-                data_to_insert(state_value + (value - state_value) * (timestamp - intermediate) / (timestamp - old_timestamp))
+                data_to_insert.append(state_value + (value - state_value) * (timestamp - intermediate) / (timestamp - old_timestamp))
             state = state_value, _
         elif self._series_type == 'counter':
             state_value, _ = state
