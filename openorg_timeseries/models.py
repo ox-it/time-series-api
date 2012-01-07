@@ -134,6 +134,9 @@ class TimeSeries(models.Model):
             database_client.delete(self.slug)
         super(TimeSeries, self).delete(*args, **kwargs)
 
+    def append(self, readings):
+        database_client = get_client()
+        database_client.append(self.slug, readings)
 
     def get_absolute_url(self):
         return reverse('timeseries:detail', args=[self.slug])

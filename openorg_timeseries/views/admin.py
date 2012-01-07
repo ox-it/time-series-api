@@ -1,5 +1,7 @@
+import calendar
+import csv
+import datetime
 import httplib
-import urllib
 import urlparse
 
 try:
@@ -7,18 +9,17 @@ try:
 except ImportError:
     import simplejson as json
 
+import dateutil
 from django.db import IntegrityError
 from django.conf import settings
-from django.core.urlresolvers import reverse
-from django.core.exceptions import PermissionDenied
-from django.http import HttpResponsePermanentRedirect, Http404, HttpResponseBadRequest
+from django.http import HttpResponsePermanentRedirect, HttpResponse
 from django.views.generic import View
 from django.db.models.query import QuerySet
 from django.shortcuts import get_object_or_404
 from django_conneg.views import JSONView, HTMLView, JSONPView, TextView
 from django_conneg.http import HttpResponseSeeOther
 from django_conneg.support import login_required
-
+import pytz
 
 import openorg_timeseries
 from openorg_timeseries import forms
@@ -31,13 +32,41 @@ class ErrorView(HTMLView, JSONPView, TextView):
         template_name = (template_name, 'timeseries-admin/error')
         return self.render(request, context, template_name)
 
-
 class TimeSeriesView(JSONView):
-    _error_view = staticmethod(ErrorView.as_view())
+    _error = staticmethod(ErrorView.as_view())
     _default_format = 'json'
+
+    def error(self, status_code, **kwargs):
+        return self._error(self.request,
+                           dict(status_code=status_code, **kwargs),
+                           'timeseries-admin/error')
+
+    def lacking_privilege(self, action):
+        return self._error(self.request,
+                           {'status_code': httplib.FORBIDDEN,
+                            'error': 'lacking-privilege',
+                            'message': 'The authenticated user lacks the necessary privilege to %s' % action},
+                           'timeseries-admin/error-lacking-privilege')
+
+    def invalid_json(self, exception):
+        return self._error(self.request,
+                           {'status_code': httplib.BAD_REQUEST,
+                            'error': 'invalid-json',
+                            'message': 'Could not parse request body as JSON',
+                            'detail': unicode(exception)},
+                           'timeseries-admin/error-invalid-json')
+
+    def bad_request(self, error, message):
+        return self._error(self.request,
+                           {'status_code': httplib.BAD_REQUEST,
+                            'error': error,
+                            'message': message},
+                           'timeseries-admin/error-bad-request')
 
     _json_indent = 2
     def simplify(self, value):
+        if isinstance(value, datetime.datetime):
+            return 1000 * calendar.timegm(value.astimezone(pytz.utc).timetuple())
         if isinstance(value, QuerySet):
             return map(self.simplify, value)
         if isinstance(value, TimeSeries):
@@ -52,7 +81,7 @@ class TimeSeriesView(JSONView):
                 data['equation'] = value.equation
             else:
                 data['config'] = value.config
-            return data
+            return self.simplify(data)
         else:
             return super(TimeSeriesView, self).simplify(value)
 
@@ -69,30 +98,20 @@ class ListView(TimeSeriesView, HTMLView, JSONPView):
         series = [s for s in series if request.user.has_perm('view_timeseries', s)]
         context = {
             'series': series,
+            'server': {'name': 'openorg_timeseries.admin',
+                       'version': openorg_timeseries.__version__},
         }
         return self.render(request, context, 'timeseries-admin/index')
 
     def post(self, request):
         if not request.user.has_perm('openorg_timeseries.add_timeseries'):
-            return self._error_view(request,
-                                    {'status_code': 403,
-                                     'error': 'lacking-privilege',
-                                     'message': 'The authenticated user lacks the necessary privilege to create a new time-series'},
-                                    'timeseries-admin/index-lacking-privilege')
+            return self.lacking_privilege('create a new time-series')
         if request.META.get('CONTENT_TYPE') != 'application/json':
-            return self._error_view(request,
-                                    {'status_code': 400,
-                                     'error': 'wrong-content-type',
-                                     'message': 'Content-Type must be "application/json"'},
-                                    'timeseries-admin/index-wrong-content-type')
+            return self.bad_request('wrong-content-type', 'Content-Type must be "application/json"')
         try:
             data = json.load(request)
-        except ValueError:
-            return self._error_view(request,
-                                    {'status_code': 400,
-                                     'error': 'invalid-json',
-                                     'message': 'Could not parse request body as JSON'},
-                                    'timeseries-admin/index-parse-failure')
+        except ValueError, e:
+            return self._error.invalid_json(request, e)
 
 
         time_series = TimeSeries()
@@ -101,21 +120,17 @@ class ListView(TimeSeriesView, HTMLView, JSONPView):
             try:
                 setattr(time_series, key, data[key])
             except KeyError:
-                return self._error_view(request,
-                                        {'status_code': 400,
-                                         'error': 'missing-field',
-                                         'field': key,
-                                         'message': 'Field "%s" was missing.' % key},
-                                        'timeseries-admin/index-missing-field')
+                return self.error(httplib.BAD_REQUEST,
+                                  error='missing-field',
+                                  field=key,
+                                  message='Field "%s" was missing.' % key)
         try:
             time_series.save()
         except IntegrityError:
             # A time-series already exists with the desired slug
-            return self._error_view(request,
-                                    {'status_code': httplib.CONFLICT,
-                                     'error': 'already-exists',
-                                     'message': 'A time-series already exists with the slug %r.' % time_series.slug},
-                                    'timeseries-admin/index-already-exists')
+            return self.error(httplib.CONFLICT,
+                              error='already-exists',
+                              message='A time-series already exists with the slug %r.' % time_series.slug)
         for perm in ('view_timeseries', 'append_timeseries', 'change_timeseries', 'delete_timeseries'):
             request.user.grant(perm, time_series)
         return self.render(request,
@@ -133,11 +148,7 @@ class CreateView(HTMLView):
     @login_required
     def dispatch(self, request):
         if not request.user.has_perm('openorg_timeseries.add_timeseries'):
-            return self._error_view(request,
-                                    {'status_code': 403,
-                                     'error': 'lacking-privilege',
-                                     'message': 'The authenticated user lacks the necessary privilege to create a new time-series'},
-                                    'timeseries-admin/index-lacking-privilege')
+            return self._error.lacking_privilege(request, 'create a new time-series')
         super(CreateView, self).dispatch(request, self.common(request))
 
     def get(self, request, context):
@@ -160,19 +171,6 @@ class CreateView(HTMLView):
         time_series.save()
         return HttpResponseSeeOther(time_series.get_absolute_url())
 
-
-class DetailView(HTMLView, JSONPView, TimeSeriesView):
-    def common(self, request, slug):
-        context = {}
-        context['series'] = get_object_or_404(TimeSeries, slug=slug)
-        return context
-
-    def get(self, request, slug):
-        context = self.common(request, slug)
-        if not context['series'].is_public:
-            raise Http404
-        return self.render(request, context, 'timeseries/rest-detail')
-
 class SecureView(View):
     force_https = getattr(settings, 'FORCE_ADMIN_HTTPS', True)
 
@@ -183,24 +181,15 @@ class SecureView(View):
             return HttpResponsePermanentRedirect(url)
         return super(SecureView, self).dispatch(request, *args, **kwargs)
 
-class AuthenticatedView(SecureView):
-    def dispatch(self, request, *args, **kwargs):
-        if not request.user.is_authenticated():
-            url = '%s?%s' % (settings.LOGIN_URL,
-                             urllib.urlencode({'next': request.build_absolute_uri()}))
-            return HttpResponseSeeOther(url)
-        return super(AuthenticatedView, self).dispatch(request, *args, **kwargs)
-
-class AdminListView(HTMLView, JSONPView, AuthenticatedView):
-    pass
-
-class AdminDetailView(AuthenticatedView, DetailView):
+class DetailView(TimeSeriesView, HTMLView):
     def common(self, request, slug):
-        context = super(AdminDetailView, self).common(request, slug)
-        if not request.user.has_perm('view_timeseries', context['series']):
-            raise PermissionDenied
-        form_class = VirtualTimeSeriesForm if context['series'].is_virtual else RealTimeSeriesForm
-        context['form'] = form_class(request.POST or None, instance=context['series'])
+        context = {
+            'series': get_object_or_404(TimeSeries, slug=slug),
+        }
+        if not request.user.get_perms(context['series']):
+            return self.lacking_privilege('view this time-series')
+        context['form'] = forms.TimeSeriesForm(request.POST or None,
+                                               instance=context['series'])
         return context
 
     def get(self, request, slug):
@@ -209,5 +198,94 @@ class AdminDetailView(AuthenticatedView, DetailView):
 
     def post(self, request, slug):
         context = self.common(request, slug)
-        return self.render(request, context, 'timeseries/admin-detail')
+        series = context['series']
+
+        if request.META.get('CONTENT_TYPE') == 'application/json':
+            try:
+                request.json_data = json.load(request)
+            except ValueError, e:
+                return self.invalid_json(e)
+        else:
+            request.json_data = None
+
+        context = {}
+        try:
+            readings = self.get_readings(request)
+        except ValueError, e:
+            return self.error(httplib.BAD_REQUEST, type='value-error', message=e.args[0])
+        if readings and series.is_virtual:
+            return self.bad_request("append-to-virtual", "You cannot append readings to a virtual time-series")
+        if readings and not request.user.has_perm('append_timeseries', series):
+            return self.lacking_privilege("append to this time-series")
+        elif readings:
+            context['readings'] = {'count': len(readings)}
+            series.append(readings)
+
+        editable_fields = ('title', 'notes')
+        if request.json_data and any(f in request.json_data for f in editable_fields):
+            context['updated'] = []
+            if not request.user.has_perm('change_timeseries', series):
+                return self.lacking_privilege("modify this time-series")
+            for f in editable_fields:
+                if f in request.json_data:
+                    if not isinstance(request.json_data[f], unicode):
+                        return self.bad_request("type-error", "Field '%s' must be a string" % f)
+                    setattr(series, f, request.json_data[f])
+                    context['updated'].append(f)
+            series.save()
+
+        return self.render(request, context, 'timeseries-admin/detail-post')
+
+
+    def get_readings(self, request):
+        readings = []
+
+        if request.json_data and 'readings' in request.json_data:
+            if not isinstance(request.json_data['readings'], list):
+                raise ValueError('"readings" member should be a list.')
+            for i, reading in enumerate(request.json_data['readings']):
+                try:
+                    if isinstance(reading, dict):
+                        reading = reading['ts'], reading['val']
+                    elif isinstance(reading, list) and len(reading) == 2:
+                        pass
+                    else:
+                        raise ValueError("Reading %i must be either an object with 'ts' and 'val' members, or a two-element list." % i)
+
+                    readings.append(reading)
+
+                except KeyError, e:
+                    raise ValueError("Reading %i was missing a '%s' member" % (i, e.args[0]))
+                except ValueError, e:
+                    raise ValueError("Reading %i: %s" % (i, e.args[0]))
+        elif request.META.get('CONTENT_TYPE') == 'text/csv':
+            reader = csv.reader(request)
+            for i, row in enumerate(reader):
+                if len(row) != 2:
+                    raise ValueError("Row %i doesn't have two columns" % i)
+                row[1] = float(row[1])
+                readings.append(row)
+
+        parsed_readings = []
+        for reading in readings:
+            if isinstance(reading[0], basestring):
+                ts = dateutil.parser.parse(reading[0])
+            elif isinstance(reading[0], (int, float)):
+                ts = pytz.utc.localize(datetime.datetime.utcfromtimestamp(reading[0] / 1000))
+            if not ts.tzinfo:
+                raise ValueError("Timestamp in reading %i is missing a timezone part.")
+            parsed_readings.append((ts, reading[1]))
+
+        return parsed_readings
+
+    def append_readings(self, request, slug, readings):
+        pass
+
+    def delete(self, request, slug):
+        context = self.common(request, slug)
+        if not request.user.has_perm('delete_timeseries', context['series']):
+            return self._error.lacking_privilege(request, 'delete this time-series')
+        context['series'].delete()
+        return HttpResponse('', status=httplib.NO_CONTENT)
+
 

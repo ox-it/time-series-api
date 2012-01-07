@@ -55,3 +55,8 @@ class ArchiveForm(forms.Form):
     count = forms.IntegerField()
 
 ArchiveFormSet = formset_factory(ArchiveForm, extra=3)
+
+class TimeSeriesForm(forms.ModelForm):
+    class Meta:
+        model = models.TimeSeries
+        fields = ('title', 'notes', 'is_public')
