@@ -2,6 +2,7 @@ from __future__ import with_statement
 
 import collections
 import contextlib
+import csv
 import datetime
 import functools
 import logging
@@ -41,17 +42,28 @@ def requireNotExists(f):
         return f(self, *args, **kwargs)
     return g
 
-def with_db(method):
+def with_db(method=None, with_csv=False):
+    if method is None:
+        return functools.partial(with_db, with_csv=with_csv)
     @functools.wraps(method)
     def f(self, slug, *args, **kwargs):
+        tsdb_filename, csv_filename = self.get_filenames(slug)
         with self.main_lock:
             lock = self.locks[slug]
             if slug not in self.databases:
-                tsdb_filename, _ = self.get_filenames(slug)
-                self.databases[slug] = TimeSeriesDatabase(tsdb_filename)
+                try:
+                    self.databases[slug] = TimeSeriesDatabase(tsdb_filename)
+                except IOError:
+                    raise SeriesNotFound
             db = self.databases[slug]
+
         with lock:
-            return method(self, db, *args, **kwargs)
+            if with_csv:
+                with open(csv_filename, 'a+b') as csv_file:
+                    csv_writer = csv.writer(csv_file)
+                    return method(self, db, csv_writer, *args, **kwargs)
+            else:
+                return method(self, db, *args, **kwargs)
     return f
 
 class DatabaseManager(processing.managers.BaseManager):
@@ -112,6 +124,16 @@ class _DatabaseClient(object):
             with self.main_lock:
                 self.databases[slug] = db
 
+    def delete(self, slug):
+        with self.main_lock:
+            lock = self.locks[slug]
+            with lock:
+                if slug not in self.databases:
+                    raise SeriesNotFound
+                self.databases.pop(slug).close()
+                for filename in self.get_filenames(slug):
+                    os.unlink(filename)
+
     @with_db
     def get_config(self, db):
         archives = []
@@ -123,105 +145,17 @@ class _DatabaseClient(object):
                 'timezone_name': db.timezone_name,
                 'archives': archives}
 
+    @with_db(with_csv=True)
+    def append(self, db, csv_writer, readings):
+        last, tz = db.last, db.timezone
+        readings = sorted((r[0].astimezone(tz), float(r[1])) for r in readings if r[0] > last)
+        for ts, val in readings:
+            csv_writer.writerow([ts.isoformat('T'), val])
+        db.update(readings)
 
-class RequestHandler(threading.Thread):
-    SERIES_RE = re.compile(r'^[a-zA-Z\d_:.-]{1,64}$')
-
-    def __init__(self, databases, lock, locks, request, client):
-        self.databases = databases
-        self.main_lock = lock
-        self.filename = request[0]
-        self.locks = locks
-        self.request = request
-        self.client = client
-        super(RequestHandler, self).__init__()
-
-    def run(self):
-        if self.request[1] is not None:
-            with self.main_lock:
-                self.lock = self.locks[self.request[1]]
-        else:
-            self.lock = threading.Lock()
-
-        with self.lock:
-            data = self.process()
-        self.client.send(data)
-
-    def process(self):
-        if len(self.request) != 4:
-            return ClientError('Request did not have four arguments')
-        command, series, args, kwargs = self.request
-        if not (isinstance(command, basestring) and \
-                (series is None or isinstance(series, basestring)) and \
-                isinstance(args, tuple) and \
-                isinstance(kwargs, dict)):
-            return ClientError("Arguments of wrong type")
-
-        self.series = series
-        if self.series:
-            if not self.SERIES_RE.match(series):
-                return SeriesNotFound("The series name is invalid: %r" % series)
-            self.filename = os.path.join(settings.TIME_SERIES_PATH, series.encode('utf-8') + '.tsdb')
-        else:
-            self.filename = None
-
-        if self.filename and os.path.exists(self.filename):
-            with self.main_lock:
-                if series in self.databases:
-                    self.db = self.databases[series]
-                else:
-                    self.db = TimeSeriesDatabase(self.filename)
-                    self.databases[series] = self.db
-        else:
-            self.db = None
-
-        try:
-            processor = getattr(self, 'process_%s' % command)
-        except AttributeError:
-            return NoSuchCommand(command)
-
-        try:
-            return processor(*args, **kwargs)
-        except TimeSeriesException, e:
-            return e
-        except Exception, e:
-            logger.exception("Unexpected exception raised by processor.")
-            return TimeSeriesException(e)
-
-    @requireNotExists
-    def process_create(self, series_type, start, interval, archives, timezone_name=None):
-        db = TimeSeriesDatabase.create(self.filename, series_type, start, interval, archives, timezone_name)
-        with self.main_lock:
-            self.databases[self.series] = db
-
-    @requireExists
-    def process_fetch(self, aggregation_type, interval=None, start=None, end=None):
-        if interval is None:
-            interval = self.db.interval
-        data = self.db.fetch(aggregation_type, interval, start, end)
-        return list(data)
-
-    @requireExists
-    def process_info(self):
-        return self.db.info()
-
-    def process_exists(self):
-        return os.path.exists(self.filename)
-
-    @requireExists
-    def process_delete(self):
-        self.db.close()
-        with self.main_lock:
-            del self.databases[self.series]
-            del self.locks[self.series]
-        os.unlink(self.filename)
-
-    @requireExists
-    def process_update(self, data):
-        self.db.update(data)
-
-    def process_list(self):
-        return [fn[:-5] for fn in os.listdir(settings.TIME_SERIES_PATH) if fn.endswith('.tsdb')]
+    @with_db
+    def fetch(self, db, aggregation_type, interval, period_start, period_end):
+        return list(db.fetch(aggregation_type, interval, period_start, period_end))
 
 def get_client():
     manager = DatabaseManager.from_address(**settings.TIME_SERIES_SERVER_ARGS)
