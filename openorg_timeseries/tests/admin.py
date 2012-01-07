@@ -127,3 +127,77 @@ class RESTCreationTestCase(TimeSeriesTestCase):
 
         # Check that we get a conflict response
         self.assertEqual(response.status_code, httplib.CONFLICT)
+
+class RESTDetailTestCase(TimeSeriesTestCase):
+    def setUp(self):
+        response = self.client.post('/admin/',
+                                    data=json.dumps(self.real_timeseries),
+                                    content_type='application/json',
+                                    REMOTE_USER='withaddperm')
+        self.location = response['Location']
+
+    def testGet(self):
+        response = self.client.get(self.location,
+                                   content_type='application/json',
+                                   REMOTE_USER='withaddperm')
+
+        self.assertEqual(response.status_code, httplib.OK)
+        self.assertEqual(response['Content-type'], 'application/json')
+        body = json.loads(response._get_content())
+
+    readings = {
+        'json': json.dumps({'readings': [{'ts': '1970-01-01T00:30:00+00:00', 'val': 5},
+                                         {'ts': 3600000, 'val': 10},
+                                         {'ts': '1970-01-01 01:30:00Z', 'val': 15},
+                                         ['1970-01-01 03:00+01:00', 20]]}),
+        'csv': '\n'.join(["1970-01-01T00:30:00+00:00,5",
+                    "1970-01-01 01:00:00Z,10",
+                    "1970-01-01 01:30:00Z,15",
+                    "1970-01-01 03:00+01:00,20"]),
+        'expected': [['1970-01-01T01:30:00+01:00', '5.0'],
+                     ['1970-01-01T02:00:00+01:00', '10.0'],
+                     ['1970-01-01T02:30:00+01:00', '15.0'],
+                     ['1970-01-01T03:00:00+01:00', '20.0']]}
+
+    def testPostJSON(self):
+        self.postReadings('application/json', 'json')
+
+    def testPostCSV(self):
+        self.postReadings('text/csv', 'csv')
+
+    def postReadings(self, content_type, key):
+        response = self.client.post(self.location,
+                                    data=self.readings[key],
+                                    content_type=content_type,
+                                    REMOTE_USER='withaddperm',
+                                    HTTP_ACCEPT='application/json')
+
+        self.assertEqual(response.status_code, httplib.OK, response._get_content())
+
+        body = json.loads(response._get_content())
+        self.assertEqual(body['readings']['count'], len(self.readings['expected']))
+
+        with open(os.path.join(settings.TIME_SERIES_PATH, 'csv', self.real_timeseries['slug'] + '.csv')) as f:
+            reader = csv.reader(f)
+            self.assertSequenceEqual(list(reader), self.readings['expected'])
+
+    def testPostInvalidJSON(self):
+        response = self.client.post(self.location,
+                                    data='bad json',
+                                    content_type='application/json',
+                                    REMOTE_USER='withaddperm')
+        self.assertEqual(response.status_code, httplib.BAD_REQUEST)
+
+
+    def testDelete(self):
+        self.assertEqual(TimeSeries.objects.filter(slug=self.real_timeseries['slug']).count(), 1)
+
+        response = self.client.delete(self.location,
+                                      content_type='application/json',
+                                      REMOTE_USER='withaddperm')
+
+        self.assertEqual(response.status_code, httplib.NO_CONTENT)
+
+        self.assertRaises(TimeSeries.DoesNotExist,
+                          TimeSeries.objects.get,
+                          slug=self.real_timeseries['slug'])
