@@ -1,6 +1,7 @@
-import base64
 import copy
-import unittest
+import csv
+import httplib
+import os
 
 try:
     import json
@@ -15,12 +16,35 @@ from django.contrib.auth.models import User
 from openorg_timeseries.models import TimeSeries
 from openorg_timeseries.longliving.database import get_client
 
-class ListPermissionTestCase(TestCase):
+class TimeSeriesTestCase(TestCase):
     fixtures = ['test_users.json', 'test_timeseries.json']
+
+
+    real_timeseries = {'slug': 'test',
+                       'title': 'Title',
+                       'notes': 'Notes',
+                       'is_public': True,
+                       'is_virtual': False,
+                       'config': {'start': '1970-01-01T00:00:00Z',
+                                  'timezone_name': 'Europe/London',
+                                  'series_type': 'gauge',
+                                  'interval': 1800,
+                                  'archives': [{'aggregation_type': 'average',
+                                                'aggregation': 1,
+                                                'count': 10000}]}}
+    def tearDown(self):
+        for path in ('csv', 'tsdb'):
+            path = os.path.join(settings.TIME_SERIES_PATH, path)
+            for filename in os.listdir(path):
+                os.unlink(os.path.join(path, filename))
+        TimeSeries.objects.all().delete()
+
+
+class ListPermissionTestCase(TimeSeriesTestCase):
 
     def testUnauthorized(self):
         response = self.client.get('/admin/')
-        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.status_code, httplib.UNAUTHORIZED)
         self.assertTrue('WWW-Authenticate' in response)
         self.assertEqual(response['WWW-Authenticate'], 'Basic')
 
@@ -28,6 +52,8 @@ class ListPermissionTestCase(TestCase):
         response = self.client.get('/admin/',
                                    content_type='application/json',
                                    REMOTE_USER=username)
+        self.assertEqual(response.status_code, httplib.OK)
+        self.assertEqual(response['Content-type'], 'application/json')
         body = json.loads(response._get_content())
         return set(s['slug'] for s in body['series'])
 
@@ -45,21 +71,7 @@ class ListPermissionTestCase(TestCase):
         self.assertEqual(series, set(['perm-test-one']))
 
 
-class RESTCreationTestCase(TestCase):
-    fixtures = ['test_users.json', 'test_timeseries.json']
-
-    real_timeseries = {'slug': 'test',
-                       'title': 'Title',
-                       'notes': 'Notes',
-                       'is_public': True,
-                       'is_virtual': False,
-                       'config': {'start': '1970-01-01T00:00:00Z',
-                                  'timezone_name': 'Europe/London',
-                                  'series_type': 'gauge',
-                                  'interval': 1800,
-                                  'archives': [{'aggregation_type': 'average',
-                                                'aggregation': 1,
-                                                'count': 10000}]}}
+class RESTCreationTestCase(TimeSeriesTestCase):
 
     def testUnauthorized(self):
         response = self.client.post('/admin/')
@@ -114,4 +126,4 @@ class RESTCreationTestCase(TestCase):
                                     REMOTE_USER='withaddperm')
 
         # Check that we get a conflict response
-        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.status_code, httplib.CONFLICT)
