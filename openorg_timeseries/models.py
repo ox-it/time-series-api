@@ -53,7 +53,7 @@ class TimeSeries(models.Model):
         elif not self._config:
             return None
         else:
-            self._config_new = pickle.loads(self._config)
+            self._config_new = pickle.loads(self._config.encode('ascii'))
             return self._config_new
     def _set_config(self, value):
         if self.pk:
