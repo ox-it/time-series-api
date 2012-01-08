@@ -1,5 +1,6 @@
 Django
 django-conneg
 python-dateutil==1.5
+pytz
 rdflib>=3.0
 processing
