@@ -249,8 +249,9 @@ class RESTDetailTestCase(TimeSeriesTestCase):
                      'notes': 'new notes'}
         response = self.client.post(self.location,
                                     data=form_data,
-                                    REMOTE_USER='withaddperm')
-        self.assertEqual(response.status_code, httplib.OK, response._get_content())
+                                    REMOTE_USER='withaddperm',
+                                    HTTP_ACCEPT='text/html')
+        self.assertEqual(response.status_code, httplib.SEE_OTHER)
 
         # Check that the series has actually been updated
         series = TimeSeries.objects.get(slug=self.real_timeseries['slug'])

@@ -248,7 +248,7 @@ class DetailView(TimeSeriesView, HTMLView):
             form.save()
 
         if self.get_renderers(request)[0].format == 'html':
-            return HttpResponseSeeOther(context['series'].get_absolute_url())
+            return HttpResponseSeeOther(series.get_absolute_url())
 
         return self.render(request, context, 'timeseries-admin/detail-post')
 
