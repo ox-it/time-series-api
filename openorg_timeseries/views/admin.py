@@ -232,7 +232,7 @@ class DetailView(TimeSeriesView, HTMLView):
         editable_fields = ('title', 'notes')
         if request.json_data and any(f in request.json_data for f in editable_fields):
             context['updated'] = []
-            if not self.has_perm('modify', series):
+            if not self.has_perm('change', series):
                 return self.lacking_privilege("modify this time-series")
             for f in editable_fields:
                 if f in request.json_data:

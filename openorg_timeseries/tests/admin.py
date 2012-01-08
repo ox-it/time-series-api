@@ -215,6 +215,35 @@ class RESTDetailTestCase(TimeSeriesTestCase):
                           TimeSeries.objects.get,
                           slug=self.real_timeseries['slug'])
 
+    def testJSONChange(self):
+        request_body = {'title': 'new title',
+                        'notes': 'new notes'}
+        response = self.client.post(self.location,
+                                    data=json.dumps(request_body),
+                                    content_type='application/json',
+                                    REMOTE_USER='withaddperm')
+
+        self.assertEqual(response.status_code, httplib.OK, response._get_content())
+        body = json.loads(response._get_content())
+
+        # Check that the change was successfully reported
+        self.assertEqual(set(body['updated']), set(request_body))
+
+        # Check that the series has actually been updated
+        series = TimeSeries.objects.get(slug=self.real_timeseries['slug'])
+        self.assertEqual(series.title, request_body['title'])
+        self.assertEqual(series.notes, request_body['notes'])
+
+    def testJSONChangeUnprivileged(self):
+        request_body = {'title': 'new title',
+                        'notes': 'new notes'}
+        response = self.client.post(self.location,
+                                    data=json.dumps(request_body),
+                                    content_type='application/json',
+                                    REMOTE_USER='unprivileged')
+
+        self.assertEqual(response.status_code, httplib.FORBIDDEN)
+
     def testEmptyRequest(self):
         response = self.client.post(self.location,
                                     data=json.dumps({}),
