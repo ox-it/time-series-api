@@ -100,6 +100,10 @@ class TimeSeriesDatabaseTestCase(unittest2.TestCase):
         finally:
             os.unlink(filename)
 
+    def testUpdateEmpty(self):
+        filename, db = self.createDatabase()
+        db.update([])
+
     def testTimestamps(self):
         local1 = pytz.timezone("Europe/London")
         local2 = pytz.timezone("America/New_York")

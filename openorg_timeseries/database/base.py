@@ -148,6 +148,8 @@ class TimeSeriesDatabase(object):
         return cls(filename)
 
     def update(self, data):
+        if not data:
+            return
         for archive in self._archives:
             self._update_archive(archive, data)
         self._sync_archive_meta()
