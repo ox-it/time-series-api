@@ -205,7 +205,7 @@ class DetailView(TimeSeriesView, HTMLView):
 
     def post(self, request, slug):
         context = self.common(request, slug)
-        series = context['series']
+        series, form = context['series'], context['form']
 
         if request.META.get('CONTENT_TYPE') == 'application/json':
             try:
@@ -241,6 +241,14 @@ class DetailView(TimeSeriesView, HTMLView):
                     setattr(series, f, request.json_data[f])
                     context['updated'].append(f)
             series.save()
+
+        if form.is_valid():
+            if not self.has_perm('change', series):
+                return self.lacking_privilege("modify this time-series")
+            form.save()
+
+        if self.get_renderers(request)[0].format == 'html':
+            return HttpResponseSeeOther(context['series'].get_absolute_url())
 
         return self.render(request, context, 'timeseries-admin/detail-post')
 

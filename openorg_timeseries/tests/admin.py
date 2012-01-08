@@ -244,6 +244,19 @@ class RESTDetailTestCase(TimeSeriesTestCase):
 
         self.assertEqual(response.status_code, httplib.FORBIDDEN)
 
+    def testFormChange(self):
+        form_data = {'title': 'new title',
+                     'notes': 'new notes'}
+        response = self.client.post(self.location,
+                                    data=form_data,
+                                    REMOTE_USER='withaddperm')
+        self.assertEqual(response.status_code, httplib.OK, response._get_content())
+
+        # Check that the series has actually been updated
+        series = TimeSeries.objects.get(slug=self.real_timeseries['slug'])
+        self.assertEqual(series.title, form_data['title'])
+        self.assertEqual(series.notes, form_data['notes'])
+
     def testEmptyRequest(self):
         response = self.client.post(self.location,
                                     data=json.dumps({}),
