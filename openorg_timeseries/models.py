@@ -141,8 +141,8 @@ class TimeSeries(models.Model):
     def get_absolute_url(self):
         return reverse('timeseries:detail', args=[self.slug])
 
-object_permissions.register(['view_timeseries',
-                             'append_timeseries',
-                             'change_timeseries',
-                             'delete_timeseries'],
+object_permissions.register(['openorg_timeseries.view_timeseries',
+                             'openorg_timeseries.append_timeseries',
+                             'openorg_timeseries.change_timeseries',
+                             'openorg_timeseries.delete_timeseries'],
                             TimeSeries, 'openorg_timeseries')

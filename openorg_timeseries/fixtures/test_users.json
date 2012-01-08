@@ -40,5 +40,20 @@
       "user": 4,
       "permission": ["add_timeseries", "openorg_timeseries", "timeseries"]
     }
+  },
+  {
+    "pk": 5,
+    "model": "auth.User",
+    "fields": {
+      "username": "withappendperm"
+    }
+  },
+  {
+    "pk": 2,
+    "model": "auth.User_User_Permissions",
+    "fields": {
+      "user": 5,
+      "permission": ["append_timeseries", "openorg_timeseries", "timeseries"]
+    }
   }
 ]

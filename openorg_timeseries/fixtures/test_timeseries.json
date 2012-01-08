@@ -19,10 +19,10 @@
     "fields": {
       "user": 3,
       "obj": 1,
-      "view_timeseries": true,
-      "change_timeseries": true,
-      "delete_timeseries": true,
-      "append_timeseries": true
+      "openorg_timeseries.view_timeseries": true,
+      "openorg_timeseries.change_timeseries": true,
+      "openorg_timeseries.delete_timeseries": true,
+      "openorg_timeseries.append_timeseries": true
     }
   },
   {

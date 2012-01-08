@@ -111,8 +111,7 @@ class RESTCreationTestCase(TimeSeriesTestCase):
         time_series = TimeSeries.objects.get(slug=self.real_timeseries['slug'])
         user = User.objects.get(username='withaddperm')
         self.assertEqual(set(user.get_perms(time_series)),
-                         set(['view_timeseries', 'change_timeseries',
-                              'append_timeseries', 'delete_timeseries']))
+                         set('openorg_timeseries.%s_timeseries' % p for p in 'view change append delete'.split()))
 
     def testCreateAlreadyExisting(self):
         data = copy.deepcopy(self.real_timeseries)
@@ -180,6 +179,17 @@ class RESTDetailTestCase(TimeSeriesTestCase):
         with open(os.path.join(settings.TIME_SERIES_PATH, 'csv', self.real_timeseries['slug'] + '.csv')) as f:
             reader = csv.reader(f)
             self.assertSequenceEqual(list(reader), self.readings['expected'])
+
+        response = self.client.post(self.location,
+                                    data=self.readings[key],
+                                    content_type=content_type,
+                                    REMOTE_USER='withappendperm',
+                                    HTTP_ACCEPT='application/json')
+
+        self.assertEqual(response.status_code, httplib.OK, response._get_content())
+
+        body = json.loads(response._get_content())
+        self.assertEqual(body['readings']['count'], len(self.readings['expected']))
 
     def testPostInvalidJSON(self):
         response = self.client.post(self.location,

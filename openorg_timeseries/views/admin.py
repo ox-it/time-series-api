@@ -36,6 +36,14 @@ class TimeSeriesView(JSONView):
     _error = staticmethod(ErrorView.as_view())
     _default_format = 'json'
 
+    def has_perm(self, perm, obj=None):
+        perm = 'openorg_timeseries.%s_timeseries' % perm
+        has_perm = self.request.user.has_perm
+        if obj and has_perm(perm, obj):
+            return True
+        return has_perm(perm)
+
+
     def error(self, status_code, **kwargs):
         return self._error(self.request,
                            dict(status_code=status_code, **kwargs),
@@ -95,7 +103,7 @@ class ListView(TimeSeriesView, HTMLView, JSONPView):
 
     def get(self, request):
         series = TimeSeries.objects.all().order_by('slug')
-        series = [s for s in series if request.user.has_perm('view_timeseries', s)]
+        series = [s for s in series if self.has_perm('view', s)]
         context = {
             'series': series,
             'server': {'name': 'openorg_timeseries.admin',
@@ -104,7 +112,7 @@ class ListView(TimeSeriesView, HTMLView, JSONPView):
         return self.render(request, context, 'timeseries-admin/index')
 
     def post(self, request):
-        if not request.user.has_perm('openorg_timeseries.add_timeseries'):
+        if not self.has_perm('add'):
             return self.lacking_privilege('create a new time-series')
         if request.META.get('CONTENT_TYPE') != 'application/json':
             return self.bad_request('wrong-content-type', 'Content-Type must be "application/json"')
@@ -131,8 +139,8 @@ class ListView(TimeSeriesView, HTMLView, JSONPView):
             return self.error(httplib.CONFLICT,
                               error='already-exists',
                               message='A time-series already exists with the slug %r.' % time_series.slug)
-        for perm in ('view_timeseries', 'append_timeseries', 'change_timeseries', 'delete_timeseries'):
-            request.user.grant(perm, time_series)
+        for perm in ('view', 'append', 'change', 'delete'):
+            request.user.grant('openorg_timeseries.%s_timeseries' % perm, time_series)
         return self.render(request,
                            {'status_code': 201,
                             'additional_headers': {'Location': request.build_absolute_uri(time_series.get_absolute_url())}},
@@ -147,7 +155,7 @@ class CreateView(HTMLView):
 
     @login_required
     def dispatch(self, request):
-        if not request.user.has_perm('openorg_timeseries.add_timeseries'):
+        if not self.has_perm('add'):
             return self._error.lacking_privilege(request, 'create a new time-series')
         super(CreateView, self).dispatch(request, self.common(request))
 
@@ -183,17 +191,16 @@ class SecureView(View):
 
 class DetailView(TimeSeriesView, HTMLView):
     def common(self, request, slug):
-        context = {
-            'series': get_object_or_404(TimeSeries, slug=slug),
-        }
-        if not request.user.get_perms(context['series']):
-            return self.lacking_privilege('view this time-series')
-        context['form'] = forms.TimeSeriesForm(request.POST or None,
-                                               instance=context['series'])
+        series = get_object_or_404(TimeSeries, slug=slug)
+        form = forms.TimeSeriesForm(request.POST or None, instance=series)
+        context = {'series': series,
+                   'form': form}
         return context
 
     def get(self, request, slug):
         context = self.common(request, slug)
+        if not self.has_perm('view', context['series']):
+            return self.lacking_privilege('view this time-series')
         return self.render(request, context, 'timeseries/admin-detail')
 
     def post(self, request, slug):
@@ -215,16 +222,17 @@ class DetailView(TimeSeriesView, HTMLView):
             return self.error(httplib.BAD_REQUEST, type='value-error', message=e.args[0])
         if readings and series.is_virtual:
             return self.bad_request("append-to-virtual", "You cannot append readings to a virtual time-series")
-        if readings and not request.user.has_perm('append_timeseries', series):
+        if readings and not self.has_perm('append', series):
             return self.lacking_privilege("append to this time-series")
         elif readings:
-            context['readings'] = {'count': len(readings)}
-            series.append(readings)
+            appended_count = series.append(readings)
+            context['readings'] = {'count': len(readings),
+                                   'appended': appended_count}
 
         editable_fields = ('title', 'notes')
         if request.json_data and any(f in request.json_data for f in editable_fields):
             context['updated'] = []
-            if not request.user.has_perm('change_timeseries', series):
+            if not self.has_perm('modify', series):
                 return self.lacking_privilege("modify this time-series")
             for f in editable_fields:
                 if f in request.json_data:
@@ -283,7 +291,7 @@ class DetailView(TimeSeriesView, HTMLView):
 
     def delete(self, request, slug):
         context = self.common(request, slug)
-        if not request.user.has_perm('delete_timeseries', context['series']):
+        if not request.user.has_perm('openorg_timeseries.delete_timeseries', context['series']):
             return self._error.lacking_privilege(request, 'delete this time-series')
         context['series'].delete()
         return HttpResponse('', status=httplib.NO_CONTENT)
