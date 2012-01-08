@@ -209,6 +209,7 @@ class RESTDetailTestCase(TimeSeriesTestCase):
                                       REMOTE_USER='withaddperm')
 
         self.assertEqual(response.status_code, httplib.NO_CONTENT)
+        self.assertEqual(response._get_content(), '')
 
         self.assertRaises(TimeSeries.DoesNotExist,
                           TimeSeries.objects.get,
