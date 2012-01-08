@@ -152,6 +152,7 @@ class _DatabaseClient(object):
         for ts, val in readings:
             csv_writer.writerow([ts.isoformat('T'), val])
         db.update(readings)
+        return len(readings)
 
     @with_db
     def fetch(self, db, aggregation_type, interval, period_start, period_end):

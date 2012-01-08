@@ -175,6 +175,7 @@ class RESTDetailTestCase(TimeSeriesTestCase):
 
         body = json.loads(response._get_content())
         self.assertEqual(body['readings']['count'], len(self.readings['expected']))
+        self.assertEqual(body['readings']['appended'], len(self.readings['expected']))
 
         with open(os.path.join(settings.TIME_SERIES_PATH, 'csv', self.real_timeseries['slug'] + '.csv')) as f:
             reader = csv.reader(f)
@@ -190,6 +191,7 @@ class RESTDetailTestCase(TimeSeriesTestCase):
 
         body = json.loads(response._get_content())
         self.assertEqual(body['readings']['count'], len(self.readings['expected']))
+        self.assertEqual(body['readings']['appended'], 0)
 
     def testPostInvalidJSON(self):
         response = self.client.post(self.location,

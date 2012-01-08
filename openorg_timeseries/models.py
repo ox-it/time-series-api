@@ -136,7 +136,7 @@ class TimeSeries(models.Model):
 
     def append(self, readings):
         database_client = get_client()
-        database_client.append(self.slug, readings)
+        return database_client.append(self.slug, readings)
 
     def get_absolute_url(self):
         return reverse('timeseries:detail', args=[self.slug])
