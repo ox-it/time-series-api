@@ -214,3 +214,10 @@ class RESTDetailTestCase(TimeSeriesTestCase):
         self.assertRaises(TimeSeries.DoesNotExist,
                           TimeSeries.objects.get,
                           slug=self.real_timeseries['slug'])
+
+    def testEmptyRequest(self):
+        response = self.client.post(self.location,
+                                    data=json.dumps({}),
+                                    content_type='application/json',
+                                    REMOTE_USER='unprivileged')
+        self.assertEqual(response.status_code, httplib.OK)

@@ -222,7 +222,7 @@ class DetailView(TimeSeriesView, HTMLView):
             return self.error(httplib.BAD_REQUEST, type='value-error', message=e.args[0])
         if readings and series.is_virtual:
             return self.bad_request("append-to-virtual", "You cannot append readings to a virtual time-series")
-        if readings and not self.has_perm('append', series):
+        if readings is not None and not self.has_perm('append', series):
             return self.lacking_privilege("append to this time-series")
         elif readings:
             appended_count = series.append(readings)
@@ -273,6 +273,8 @@ class DetailView(TimeSeriesView, HTMLView):
                     raise ValueError("Row %i doesn't have two columns" % i)
                 row[1] = float(row[1])
                 readings.append(row)
+        else:
+            return None
 
         parsed_readings = []
         for reading in readings:
