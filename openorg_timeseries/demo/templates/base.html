@@ -15,6 +15,9 @@
       <ul>
         <li><a href="{% url timeseries-endpoint:index %}">Home</a></li>
         <li><a href="{% url timeseries-endpoint:documentation %}">Documentation</a></li>
+        {% if user.is_authenticated %}
+        <li><a href="{% url timeseries-admin:index %}">Time-series Admin</a></li>
+        {% endif %}
         {% if user.is_staff %}
         <li><a href="{% url admin:index %}">Admin</a></li>
         {% endif %}
