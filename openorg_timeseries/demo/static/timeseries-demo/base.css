@@ -1,0 +1,73 @@
+body {
+	font-family: sans-serif;
+	margin: 0;
+}
+
+header {
+	padding: 1em;
+	background: #a9db80; /* Old browsers */
+	background: -moz-linear-gradient(top,  #a9db80 0%, #96c56f 100%); /* FF3.6+ */
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#a9db80), color-stop(100%,#96c56f)); /* Chrome,Safari4+ */
+	background: -webkit-linear-gradient(top,  #a9db80 0%,#96c56f 100%); /* Chrome10+,Safari5.1+ */
+	background: -o-linear-gradient(top,  #a9db80 0%,#96c56f 100%); /* Opera 11.10+ */
+	background: -ms-linear-gradient(top,  #a9db80 0%,#96c56f 100%); /* IE10+ */
+	background: linear-gradient(top,  #a9db80 0%,#96c56f 100%); /* W3C */
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#a9db80', endColorstr='#96c56f',GradientType=0 ); /* IE6-9 */
+}
+
+header p {
+	font-size:20pt;
+	margin:0.5em;
+	color: #2D550C;
+}
+
+nav ul {
+	list-style: none;
+	margin-top: 0;
+	padding: 1em;
+	background: rgb(238,238,238); /* Old browsers */
+background: -moz-linear-gradient(top,  rgba(238,238,238,1) 0%, rgba(204,204,204,1) 100%); /* FF3.6+ */
+background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(238,238,238,1)), color-stop(100%,rgba(204,204,204,1))); /* Chrome,Safari4+ */
+background: -webkit-linear-gradient(top,  rgba(238,238,238,1) 0%,rgba(204,204,204,1) 100%); /* Chrome10+,Safari5.1+ */
+background: -o-linear-gradient(top,  rgba(238,238,238,1) 0%,rgba(204,204,204,1) 100%); /* Opera 11.10+ */
+background: -ms-linear-gradient(top,  rgba(238,238,238,1) 0%,rgba(204,204,204,1) 100%); /* IE10+ */
+background: linear-gradient(top,  rgba(238,238,238,1) 0%,rgba(204,204,204,1) 100%); /* W3C */
+filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#eeeeee', endColorstr='#cccccc',GradientType=0 ); /* IE6-9 */
+	text-align: center;
+}
+
+nav li {
+	display: inline;
+	margin: 0 0.5em
+}
+
+article {
+	margin: 1em;
+}
+
+h1 {
+	text-align: center;
+	font-size: 28pt;
+	color: #96c56f;
+}
+
+h2 {
+	font-size: 20pt;
+	margin: 1em 0 0.3em 0;
+}
+
+p {
+	margin: 0.5em 0;
+}
+
+.login-form {
+	width:300px;
+	margin: 0 auto;
+	border:1px solid #888;
+	padding: 1em;
+}
+
+.login-form tfoot td {
+	padding-top: 1em;
+	text-align: center;
+}

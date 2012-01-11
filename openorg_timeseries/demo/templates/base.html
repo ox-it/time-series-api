@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{% block title %}{% endblock %} | openorg_timeseries demo</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}timeseries-demo/base.css"/>
+    <link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}timeseries/base.css"/>
+  </head>
+  {% block body %}
+  <body>
+    <header>
+      <p>openorg_timeseries demo</p>
+    </header>
+    <nav>
+      <ul>
+        <li><a href="{% url timeseries-endpoint:index %}">Home</a></li>
+        <li><a href="{% url timeseries-endpoint:documentation %}">Documentation</a></li>
+        {% if user.is_staff %}
+        <li><a href="{% url admin:index %}">Admin</a></li>
+        {% endif %}
+        
+        {% if user.is_authenticated %}
+        <li>Logged in as {{ user.first_name }} {{ user.last_name }} ({{ user.username }})</li>
+        <li><a href="{% url auth-logout %}">Log out</a></li>
+        {% else %}
+        <li><a href="{% url auth-login %}">Log in</a></li>
+        {% endif %}
+      </ul>
+    </nav>
+    <article>
+    {% block content %}{% endblock %}
+    </article>
+  </body>
+  {% endblock %}
+</html>
