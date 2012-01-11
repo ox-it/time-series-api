@@ -2,15 +2,14 @@
 
 {% block title %}Time-series API endpoint{% endblock %}
 
-{% block body %}
-<article>
+{% block content %}
   <h1>Time-series API endpoint</h1>
   
   <p>This is a time-series endpoint.</p>
 
   <ul>
     <li><a href="?action=list">List of time-series</a></li>
-    <li><a href="{% url timeseries:documentation %}">Documentation</a></li>
+    <li><a href="{% url timeseries-endpoint:documentation %}">Documentation</a></li>
   </ul>
 </article>
 

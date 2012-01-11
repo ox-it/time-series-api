@@ -128,9 +128,8 @@ class _DatabaseClient(object):
         with self.main_lock:
             lock = self.locks[slug]
             with lock:
-                if slug not in self.databases:
-                    raise SeriesNotFound
-                self.databases.pop(slug).close()
+                if slug in self.databases:
+                    self.databases.pop(slug).close()
                 for filename in self.get_filenames(slug):
                     os.unlink(filename)
 

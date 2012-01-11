@@ -12,13 +12,16 @@ except ImportError:
 import dateutil
 from django.db import IntegrityError
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
+from django.forms.util import ErrorList
 from django.http import HttpResponsePermanentRedirect, HttpResponse
+from django.utils.decorators import method_decorator
 from django.views.generic import View
 from django.db.models.query import QuerySet
 from django.shortcuts import get_object_or_404
 from django_conneg.views import JSONView, HTMLView, JSONPView, TextView
 from django_conneg.http import HttpResponseSeeOther
-from django_conneg.support import login_required
+#from django_conneg.support import login_required
 import pytz
 
 import openorg_timeseries
@@ -97,7 +100,7 @@ class TimeSeriesView(JSONView):
         return dict((k, d.get(k)) for k in keys)
 
 class ListView(TimeSeriesView, HTMLView, JSONPView):
-    @login_required
+    @method_decorator(login_required)
     def dispatch(self, request):
         return super(ListView, self).dispatch(request)
 
@@ -146,18 +149,18 @@ class ListView(TimeSeriesView, HTMLView, JSONPView):
                             'additional_headers': {'Location': request.build_absolute_uri(time_series.get_absolute_url())}},
                            'timeseries-admin/index-created')
 
-class CreateView(HTMLView):
+class CreateView(TimeSeriesView, HTMLView):
     def common(self, request):
         return {
             'form': forms.NewTimeSeriesForm(request.POST or None),
             'archive_formset': forms.ArchiveFormSet(request.POST or None),
         }
 
-    @login_required
+    @method_decorator(login_required)
     def dispatch(self, request):
-        if not self.has_perm('add'):
-            return self._error.lacking_privilege(request, 'create a new time-series')
-        super(CreateView, self).dispatch(request, self.common(request))
+        if not request.user.has_perm('openorg_timeseries.add_timeseries'):
+            return self.lacking_privilege('create a new time-series')
+        return super(CreateView, self).dispatch(request, self.common(request))
 
     def get(self, request, context):
         return self.render(request, context, 'timeseries-admin/create')
@@ -168,15 +171,19 @@ class CreateView(HTMLView):
             return self.render(request, context, 'timeseries-admin/create')
 
         time_series = TimeSeries(**self.filtered_dict(form.cleaned_data,
-                                                      TimeSeries.field_groups['common']))
+                                                      TimeSeries.common_fields))
         if time_series.is_virtual:
-            for k in TimeSeries.field_groups['virtual']:
-                setattr(time_series, k, form.cleaned_data.get(k))
+            time_series.equation = form.cleaned_data['equation']
         else:
-            config = self.filtered_dict(form.cleanded_data, TimeSeries.field_groups['config'])
+            config = self.filtered_dict(form.cleaned_data, TimeSeries.config_fields)
             config['archives'] = [f.cleaned_data for f in archive_formset.forms if f.is_valid() and f.cleaned_data]
             time_series.config = config
-        time_series.save()
+
+        try:
+            time_series.save()
+        except IntegrityError:
+            form.errors['slug'] = ErrorList(["A time-series with this slug already exists."])
+            return self.get(request, context)
         return HttpResponseSeeOther(time_series.get_absolute_url())
 
 class SecureView(View):

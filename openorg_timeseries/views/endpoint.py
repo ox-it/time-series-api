@@ -16,6 +16,7 @@ from django_conneg.views import ContentNegotiatedView, HTMLView, TextView, JSONP
 from django_conneg.decorators import renderer
 
 from openorg_timeseries.longliving.database import get_client, SeriesNotFound, TimeSeriesException
+from openorg_timeseries.models import TimeSeries
 
 TS = rdflib.Namespace('http://purl.org/NET/time-series/')
 
@@ -199,8 +200,11 @@ class GraphView(HTMLView, JSONPView):
 
 class ListView(HTMLView, JSONPView, TabularView):
     def get(self, request):
-        client = DatabaseClient()
-        context = {'names': sorted(client.list())}
+        series = TimeSeries.objects.filter(is_public=True)
+        context = {
+            'series': series,
+            'names': [s.slug for s in series],
+        }
         return self.render(request, context, 'timeseries/list')
 
     def get_table(self, request, context):
@@ -239,7 +243,7 @@ class DocumentationView(HTMLView):
         for action, view in EndpointView._views_by_action.iteritems():
             renderers[action] = [{'format': r.format, 'mimetypes': r.mimetypes, 'name': r.name} for r in view._renderers]
         context = {
-            'endpoint_url': request.build_absolute_uri(reverse('timeseries:index')),
+            'endpoint_url': request.build_absolute_uri(reverse('timeseries-endpoint:index')),
             'renderers': renderers,
         }
         return self.render(request, context, 'timeseries/documentation')

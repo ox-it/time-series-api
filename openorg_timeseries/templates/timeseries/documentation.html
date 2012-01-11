@@ -2,22 +2,11 @@
 
 {% block title %}Time-series endpoint documentation{% endblock %}
 
-{% block extrahead %}{{ block.super }}
-  <style type="text/css">
-    table.serializations {
-      border: 1px solid #aaa;
-      float:right;
-      font-size:80%;
-    }
-  </style>
-{% endblock %}
-
-{% block body %}
-<article>
+{% block content %}
   <h1>Documentation of the time-series endpoint API</h1>
   
   <p>This site exposes a time-series endpoint at
-     <a href="{% url timeseries:index %}">{{ endpoint_url }}</a>.
+     <a href="{% url timeseries-endpoint:index %}">{{ endpoint_url }}</a>.
      The endpoint exposes a simple API for querying data from a number of
      time-series.</p>
      
@@ -50,7 +39,7 @@
   <section id="ref">
     <h2>API reference</h2>
     
-    <p>The endpoint is available at <a href="{% url timeseries:index %}">a
+    <p>The endpoint is available at <a href="{% url timeseries-endpoint:index %}">a
        single base URL</a> with query parameters used to control the
        response.</p>
        
@@ -96,8 +85,8 @@
 second_series
 third_series</pre>
 
-      <p>This endpoint's <a href="{% url timeseries:index %}?action=list">series list</a> is available as
-         {% for renderer in renderers.list %}{% if not forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endif %}<a href="{% url timeseries:index %}?action=list&format={{ renderer.format }}">{{ renderer.name }}</a>{% endfor %}.</p>
+      <p>This endpoint's <a href="{% url timeseries-endpoint:index %}?action=list">series list</a> is available as
+         {% for renderer in renderers.list %}{% if not forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endif %}<a href="{% url timeseries-endpoint:index %}?action=list&format={{ renderer.format }}">{{ renderer.name }}</a>{% endfor %}.</p>
          
       <div style="clear:both;"/>
     </section>
@@ -203,5 +192,4 @@ third_series</pre>
       
       <div style="clear:both;"/>
   </section>
-</article>
 {% endblock %}

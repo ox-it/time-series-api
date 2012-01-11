@@ -46,7 +46,7 @@ class NewTimeSeriesForm(forms.ModelForm):
 
     class Meta:
         model = models.TimeSeries
-        fields = ('slug', 'title', 'is_public', 'is_virtual', 'interval', 'timezone_name', 'start')
+        fields = ('slug', 'title', 'is_public', 'is_virtual', 'interval', 'timezone_name', 'start', 'notes')
 
 class ArchiveForm(forms.Form):
     aggregation_type = forms.ChoiceField(widget=forms.Select,

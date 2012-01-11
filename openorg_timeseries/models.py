@@ -45,6 +45,7 @@ class TimeSeries(models.Model):
                                         blank=True)
 
     common_fields = ('slug', 'title', 'notes', 'is_public', 'is_virtual')
+    config_fields = ('interval', 'start', 'series_type', 'timezone_name')
 
 
     def _get_config(self):

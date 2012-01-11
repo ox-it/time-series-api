@@ -2,15 +2,27 @@
 
 {% block title %}List of time-series{% endblock %}
 
-{% block body %}
-<article>
+{% block content %}
   <h1>List of time-series</h1>
   
-  <ul>
-{% for name in names %}
-    <li>{{ name }} (<a href="?action=info&series={{ name }}">metadata</a>)</li>
+  <table>
+    <thead>
+      <th>Identifier</th>
+      <th>Name</th>
+      <th>Notes</th>
+    </thead>
+    <tbody>
+{% for series in series %}
+      <tr>
+        <td><a href="?action=info&series={{ series.slug }}">{{ series.slug }}</a></td>
+        <td>{{ series.title }}</td>
+        <td>{{ series.notes|truncatewords:30 }}</td>
+      </tr>
+{% empty %}
+      <tr>
+        <td colspan="3">There are no time-series available.</td>
+      </tr>
 {% endfor %}
-  </ul>
-
-</article>
+    </tbody>
+  </table>
 {% endblock %}
