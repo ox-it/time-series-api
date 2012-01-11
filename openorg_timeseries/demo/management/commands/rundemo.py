@@ -66,8 +66,8 @@ class Command(BaseCommand):
         try:
             timeseries = TimeSeries.objects.get(slug=self.demo_timeseries['slug'])
             timeseries.delete()
-        except Exception:
-            raise
+        except TimeSeries.DoesNotExist:
+            pass
 
         timeseries = TimeSeries(**self.demo_timeseries)
         timeseries.save()
