@@ -19,7 +19,7 @@
     </thead>
     <tbody>{% for series in series %}
       <tr>
-        <td><a href="{{ series.get_absolute_url }}">{{ series.slug }}</a></td>
+        <td><a href="{{ series.get_admin_url }}">{{ series.slug }}</a></td>
         <td>{{ series.title }}</td>
       </tr>
     {% endfor %}</tbody>

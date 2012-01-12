@@ -82,7 +82,7 @@ class TimeSeriesView(JSONView):
             return map(self.simplify, value)
         if isinstance(value, TimeSeries):
             data = {
-                '_url': value.get_absolute_url(),
+                '_url': value.get_admin_url(),
                 'slug': value.slug,
                 'title': value.title,
                 'notes': value.notes,
@@ -146,7 +146,7 @@ class ListView(TimeSeriesView, HTMLView, JSONPView):
             request.user.grant('openorg_timeseries.%s_timeseries' % perm, time_series)
         return self.render(request,
                            {'status_code': 201,
-                            'additional_headers': {'Location': request.build_absolute_uri(time_series.get_absolute_url())}},
+                            'additional_headers': {'Location': request.build_absolute_uri(time_series.get_admin_url())}},
                            'timeseries-admin/index-created')
 
 class CreateView(TimeSeriesView, HTMLView):
@@ -184,7 +184,7 @@ class CreateView(TimeSeriesView, HTMLView):
         except IntegrityError:
             form.errors['slug'] = ErrorList(["A time-series with this slug already exists."])
             return self.get(request, context)
-        return HttpResponseSeeOther(time_series.get_absolute_url())
+        return HttpResponseSeeOther(time_series.get_admin_url())
 
 class SecureView(View):
     force_https = getattr(settings, 'FORCE_ADMIN_HTTPS', True)
@@ -255,7 +255,7 @@ class DetailView(TimeSeriesView, HTMLView):
             form.save()
 
         if self.get_renderers(request)[0].format == 'html':
-            return HttpResponseSeeOther(series.get_absolute_url())
+            return HttpResponseSeeOther(series.get_admin_url())
 
         return self.render(request, context, 'timeseries-admin/detail-post')
 
