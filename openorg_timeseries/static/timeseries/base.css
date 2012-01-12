@@ -1,4 +1,4 @@
-table.timeseries-serializations {
+table.timeseries-serializations, table.timeseries-samples {
   border: 1px solid #aaa;
   float:right;
   font-size:80%;

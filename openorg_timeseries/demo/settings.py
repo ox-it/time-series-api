@@ -38,6 +38,8 @@ LOGIN_URL = '/login/'
 LOGOUT_URL = '/logout/'
 LOGIN_REDIRECT_URL = '/'
 
+
+TIME_SERIES_URI_BASE = "http://id.example.org/time-series/"
 TIME_SERIES_SERVER_ARGS = {'address': ('localhost', 28349),
                            'authkey': 'thisisasecret'}
 TIME_SERIES_PATH = DATA_DIR

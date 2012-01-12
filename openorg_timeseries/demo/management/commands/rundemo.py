@@ -47,7 +47,7 @@ class Command(BaseCommand):
                        'is_virtual': False,
                        'config': {'timezone_name': 'Europe/London',
                                   'start': '1970-01-01T00:00:00+00:00',
-                                  'series_type': 'gauge',
+                                  'series_type': 'period',
                                   'interval': 1800,
                                   'archives': [{'aggregation_type': 'average',
                                                 'aggregation': 1,

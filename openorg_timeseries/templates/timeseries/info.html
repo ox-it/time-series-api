@@ -1,0 +1,64 @@
+{% extends "timeseries/base.html" %}{% load openorg_timeseries %}
+
+
+
+{% block title %}{% if series_list|length == 1 %}{{ series_list.0.title }}{% else %}{{ series|length }} time-series{% endif %}{% endblock %}
+
+{% block content %}
+
+<h1>{% if series_list|length == 1 %}{{ series_list.0.title }}{% else %}{{ series|length }} time-series{% endif %}</h1>
+
+{% for series in series_list %}
+{% if series_list|length  > 1 %}
+<section>
+  <h2>{{ series.title }}</h2>
+{% endif %}
+
+  <table class="timeseries-samples">
+    <caption>Samples</caption>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Aggregation</th>
+        <th>Count</th>
+        <th>Resolution</th>
+        <th>Fetch</th>
+      </tr>
+    </thead>
+    <tbody>{% for sample in series.info.samples %}
+      <tr>
+        <td>{{ sample.type }}</td>
+        <td>{{ sample.aggregation }}</td>
+        <td>{{ sample.count }}</td>
+        <td>{{ sample.resolution|prettify_seconds }}</td>
+        <td>
+          <a href="?action=fetch&amp;series={{ series.name }}&amp;type={{ sample.type }}&amp;resolution={{ sample.resolution }}&amp;start={{ series.info.updated_jsts|add:"-86400" }}&amp;end={{ series.info.updated_jsts }}">last day</a>
+          <a href="?action=fetch&amp;series={{ series.name }}&amp;type={{ sample.type }}&amp;resolution={{ sample.resolution }}&amp;start={{ series.info.updated_jsts|add:"-604800" }}&amp;end={{ series.info.updated_jsts }}">last week</a>
+        </td>
+      </tr>{% endfor %}
+    </tbody>
+  </table>
+
+  <dl>
+    <dt>Name</dt>
+    <dd>{{ series.name }}</dd>
+    <dt>Title</dt>
+    <dd>{{ series.title }}</dd>
+    {% if series.notes %}
+    <dt>Notes</dt>
+    <dd>{{ series.notes }}</dd>
+    {% endif %}
+    <dt>Interval between readings</dt>
+    <dd>{{ series.info.interval|prettify_seconds }}</dd>
+  </dl>
+  
+
+{% if series_list|length > 1 %}
+</section>
+{% endif %}
+{% endfor %}
+
+{% endblock %}
+
+
+

@@ -1,3 +1,4 @@
+import calendar
 import datetime
 import httplib
 import os
@@ -6,7 +7,7 @@ import time
 import dateutil.parser
 import pytz
 import rdflib
-from rdflib.namespace import RDF
+from rdflib.namespace import RDF, RDFS
 
 from django.conf import settings
 from django.core.urlresolvers import reverse
@@ -69,6 +70,7 @@ class IndexView(HTMLView):
 
 class ErrorView(HTMLView, JSONPView, TextView):
     _force_fallback_format = 'txt'
+    _json_indent = 2
 
     def get(self, request, status_code, message):
         context = {
@@ -80,9 +82,11 @@ class ErrorView(HTMLView, JSONPView, TextView):
         return self.render(request, context, 'timeseries/error')
 
 class FetchView(JSONPView, TextView, TabularView):
+    _json_indent = 1
+
     def get(self, request):
         try:
-            series_names = request.GET['series'].split(',')
+            series_names = set(request.GET['series'].split(','))
         except KeyError:
             return EndpointView._error_view(request, 400, "You must supply a series parameter.")
 
@@ -94,7 +98,7 @@ class FetchView(JSONPView, TextView, TabularView):
         except (KeyError, ValueError):
             return EndpointView._error_view(request, 400, "Missing required parameter 'type', which must be one of 'average', 'min', 'max'.")
 
-        for argument, parameter in (('start', 'startTime'), ('end', 'endTime')):
+        for argument, parameter in (('period_start', 'start'), ('period_end', 'end')):
             if parameter in request.GET:
                 timestamp = None
                 try:
@@ -104,33 +108,36 @@ class FetchView(JSONPView, TextView, TabularView):
                         timestamp = int(request.GET[parameter])
                         timestamp = datetime.datetime.utcfromtimestamp(timestamp)
                     except (OverflowError, ValueError):
-                        return EndpointView._error_view(request, 400, "%s should be a W3C-style ISO8601 datetime, or a Unix timestamp." % parameter)
+                        return EndpointView._error_view(request, 400, "%s should be a W3C-style ISO8601 datetime, or a Unix timestamp, which will be assumed to be UTC in the absence of any timezone information." % parameter)
                 if not timestamp.tzinfo:
                     timestamp = pytz.utc.localize(timestamp)
                 fetch_arguments[argument] = timestamp
-        if 'resolution' in request.GET:
-            try:
-                fetch_arguments['interval'] = int(request.GET['resolution'])
-            except ValueError:
-                return EndpointView._error_view(request, 400, "resolution should be an integer number of seconds.")
+        try:
+            fetch_arguments['interval'] = int(request.GET['resolution'])
+        except (KeyError, ValueError):
+            return EndpointView._error_view(request, 400, "resolution query parameter should be an integer number of seconds.")
 
-        client = get_client()
+        print fetch_arguments
+
+        timeseries = TimeSeries.objects.filter(is_public=True, slug__in=series_names)
+        found_series = set(s.slug for s in timeseries)
         context = {
             'series': {}
         }
 
-        for series in series_names:
-            if not client.exists(series):
-                context['series'][series] = {'error': 'not-found'}
-                continue
+        for series_name in series_names:
+            if series_name not in found_series:
+                context['series'][series_name] = {'error': 'not-found'}
 
+        for series in timeseries:
             try:
-                result = client.fetch(series, **fetch_arguments)
+                result = series.fetch(**fetch_arguments)
             except TimeSeriesException:
-                context['series'][series] = {'error':'type-not-available'}
+                raise
+                context['series'][series.slug] = {'error': 'type-not-available'}
                 continue
-            context['series'][series] = {
-                'name': series,
+            context['series'][series.slug] = {
+                'name': series.slug,
                 'data': [{'ts': ts, 'val': val if val == val else None} for ts, val in result],
             }
 
@@ -148,33 +155,47 @@ class FetchView(JSONPView, TextView, TabularView):
                 yield (name, datum['ts'].strftime('%Y-%m-%d %H:%M:%S'), val)
 
 class InfoView(HTMLView, JSONPView, RDFView):
-    series_types = {'period': 'rate', 'gauge': 'rate', 'counter': 'rate', 'absolute': 'cumulative'}
+    _json_indent = 2
+
+    series_types = {'period': 'gauge', 'gauge': 'rate', 'counter': 'gauge', 'absolute': 'cumulative'}
 
     def get(self, request):
-        client = get_client()
         try:
-            series_names = request.GET.get('series')
-            if series_names is None:
-                series_names = client.list()
-            else:
-                series_names = series_names.split(',')
+            series_names = request.GET['series']
+            series = TimeSeries.objects.filter(is_public=True)
+            missing = []
+            if series_names != '*':
+                series_names = set(series_names.split(','))
+                series = series.filter(slug__in=series_names)
+                found_names = set(s.slug for s in series)
+                missing_names = series_names - found_names
         except KeyError:
             return EndpointView._error_view(request, 400, "You must supply a series parameter.")
 
         context = {'series': {}}
-        for series_name in series_names:
-            metadata = {
-                'name': series_name,
-                'info': client.info(series_name),
-            }
-            metadata['info']['type'] = self.series_types[metadata['info']['type']]
-            context['series'][series_name] = metadata
+        for s in series:
+            config = s.config
+            metadata = {'name': s.slug,
+                        'title': s.title,
+                        'notes': s.notes,
+                        'info': {'type': self.series_types[config['series_type']],
+                                 'interval': config['interval'],
+                                 'start': config['start'],
+                                 'updated': s.last,
+                                 'updated_jsts': calendar.timegm(s.last.astimezone(pytz.utc).timetuple()),
+                                 'timezone': config['timezone_name'],
+                                 'samples': [{'count': a['count'],
+                                              'type': a['aggregation_type'],
+                                              'resolution': a['aggregation'] * config['interval'],
+                                              'aggregation': a['aggregation']} for a in s.config['archives']]}}
+            context['series'][s.slug] = metadata
+        context['series_list'] = context['series'].values()
 
         return self.render(request, context, 'timeseries/info')
 
     def get_graph(self, request, context):
         graph = rdflib.ConjunctiveGraph()
-        endpoint = rdflib.URIRef(request.build_absolute_uri(reverse('timeseries:index')))
+        endpoint = rdflib.URIRef(request.build_absolute_uri(reverse('timeseries-endpoint:index')))
         graph += ((endpoint, RDF.type, TS.TimeSeriesEndpoint),)
         for series in context['series'].itervalues():
             info = series['info']
@@ -183,7 +204,10 @@ class InfoView(HTMLView, JSONPView, RDFView):
                       (timeseries, TS.endpoint, endpoint),
                       (timeseries, TS.seriesName, rdflib.Literal(series['name'])),
                       (timeseries, TS.resolution, rdflib.Literal(int(info['interval']))),
-                      (timeseries, TS.type, TS[info['type']]))
+                      (timeseries, TS.type, TS[info['type']]),
+                      (timeseries, RDFS.label, rdflib.Literal(series['title'])))
+            if series['notes']:
+                graph.add((timeseries, RDFS.comment, rdflib.Literal(series['notes'])))
             for i, sample in enumerate(series['info']['samples']):
                 sample_uri = rdflib.URIRef('%s/%s' % (timeseries, i))
                 graph += ((sample_uri, RDF.type, TS.Sampling),
@@ -193,12 +217,19 @@ class InfoView(HTMLView, JSONPView, RDFView):
                           (sample_uri, TS['samplingType'], TS[sample['type']]))
         return graph
 
+    def preprocess_context_for_json(self, context):
+        return {'series': context['series']}
+
 class GraphView(HTMLView, JSONPView):
+    _json_indent = 2
+
     def get(self, request):
         #return self.render(request, {}, 'timeseries/graph')
         return EndpointView._error_view(request, 501, 'Not yet implemented')
 
 class ListView(HTMLView, JSONPView, TabularView):
+    _json_indent = 2
+
     def get(self, request):
         series = TimeSeries.objects.filter(is_public=True)
         context = {

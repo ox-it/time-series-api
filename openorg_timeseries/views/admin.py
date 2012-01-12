@@ -232,9 +232,10 @@ class DetailView(TimeSeriesView, HTMLView):
         if readings is not None and not self.has_perm('append', series):
             return self.lacking_privilege("append to this time-series")
         elif readings:
-            appended_count = series.append(readings)
+            result = series.append(readings)
             context['readings'] = {'count': len(readings),
-                                   'appended': appended_count}
+                                   'appended': result['appended'],
+                                   'last': result['last']}
 
         editable_fields = ('title', 'notes')
         if request.json_data and any(f in request.json_data for f in editable_fields):

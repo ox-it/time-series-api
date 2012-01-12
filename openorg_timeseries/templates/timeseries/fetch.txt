@@ -1,2 +1,2 @@
-{% for series, data in series.items %}{% for datum in data.data %}{{ series }},{{ datum.ts|date:"c" }},{{ datum.val }}
+{% for series, data in series.items %}{% for datum in data.data %}{{ series }},{{ datum.ts|date:"c" }},{{ datum.val|default_if_none:"" }}
 {% endfor %}{% endfor %}
