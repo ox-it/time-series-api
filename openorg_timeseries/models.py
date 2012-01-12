@@ -36,6 +36,7 @@ class TimeSeries(models.Model):
     # Real time-series data
     _config = models.TextField(blank=True)
     _config_new = None
+    _last = models.DateTimeField(null=True, blank=True)
 
     # Virtual time-series data
     equation = models.TextField()
@@ -91,13 +92,19 @@ class TimeSeries(models.Model):
         self._config_new = value
     config = property(_get_config, _set_config)
 
+    def _get_last(self):
+        if not self._last:
+            return None
+        tz = pytz.timezone(self.config['timezone_name'])
+        return tz.localize(self._last)
+    def _set_last(self, value):
+        self._last = value.astimezone(pytz.utc)
+    last = property(_get_last, _set_last)
+
     class Meta:
         permissions = (
             ('append_timeseries', 'User can append new readings to this time-series'),
         )
-
-    def can_append(self, user):
-        return self.user.is_superuser or self.user.has_perm
 
     def save(self, *args, **kwargs):
         if self._config_new is not None:
@@ -137,7 +144,14 @@ class TimeSeries(models.Model):
 
     def append(self, readings):
         database_client = get_client()
-        return database_client.append(self.slug, readings)
+        result = database_client.append(self.slug, readings)
+        self.last = result['last']
+        self.save()
+        return result
+
+    def fetch(self, aggregation_type, interval, period_start=None, period_end=None):
+        database_client = get_client()
+        return database_client.fetch(self.slug, aggregation_type, interval, period_start, period_end)
 
     def get_admin_url(self):
         return reverse('timeseries-admin:detail', args=[self.slug])
