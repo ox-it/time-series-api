@@ -60,9 +60,9 @@ Details
 
 The demo site performs the following steps on start-up:
 
-1. Creates a ``demo-data`` directory in the current directory to store data used by the demo
-1. Runs the ``syncdb`` Django management command to create a ``sqlite3`` database in the ``demo-data`` directory
-1. Starts a long-living process which manages the data storage and retrieval
-1. Creates a new time-series and loads in some example data
-1. Runs the ``runserver`` management command (without the auto-reloader) to start the Django development server
+#. Creates a ``demo-data`` directory in the current directory to store data used by the demo
+#. Runs the ``syncdb`` Django management command to create a ``sqlite3`` database in the ``demo-data`` directory
+#. Starts a long-living process which manages the data storage and retrieval
+#. Creates a new time-series and loads in some example data
+#. Runs the ``runserver`` management command (without the auto-reloader) to start the Django development server
 
