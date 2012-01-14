@@ -153,8 +153,8 @@ class TimeSeries(models.Model):
         database_client = get_client()
         return database_client.fetch(self.slug, aggregation_type, interval, period_start, period_end)
 
-    def get_absolute_url(self):
-        return reverse('timeseries:detail', args=[self.slug])
+    def get_admin_url(self):
+        return reverse('timeseries-admin:detail', args=[self.slug])
 
 object_permissions.register(['openorg_timeseries.view_timeseries',
                              'openorg_timeseries.append_timeseries',
