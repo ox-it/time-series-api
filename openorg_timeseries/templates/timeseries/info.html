@@ -51,7 +51,7 @@
     <dt>Interval between readings</dt>
     <dd>{{ series.info.interval|prettify_seconds }}</dd>
     <dt>Last reading</dt>
-    <dd>{{ series.info.updated }} ({{ series.info.updated|timesince }} ago)</dd>
+    <dd>{% if series.info.updated %}{{ series.info.updated }} ({{ series.info.updated|timesince }} ago){% else %}no readings yet{% endif %}</dd>
   </dl>
   
 
