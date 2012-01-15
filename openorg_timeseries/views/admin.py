@@ -2,6 +2,7 @@ import calendar
 import csv
 import datetime
 import httplib
+import urllib
 import urlparse
 
 try:
@@ -202,11 +203,15 @@ class DetailView(TimeSeriesView, HTMLView):
         form = forms.TimeSeriesForm(request.POST or None, instance=series)
         context = {'series': series,
                    'form': form}
+        for field in ('count', 'appended'):
+            if 'readings.%s' % field in request.GET:
+                context['readings'] = context.get('readings', {})
+                context['readings'][field] = request.GET['readings.%s' % field]
         return context
 
     @method_decorator(login_required)
-    def get(self, request, slug):
-        context = self.common(request, slug)
+    def get(self, request, slug, context=None):
+        context = context or self.common(request, slug)
         if not self.has_perm('view', context['series']):
             return self.lacking_privilege('view this time-series')
         return self.render(request, context, 'timeseries-admin/detail')
@@ -215,6 +220,7 @@ class DetailView(TimeSeriesView, HTMLView):
     def post(self, request, slug):
         context = self.common(request, slug)
         series, form = context['series'], context['form']
+        successful = True
 
         if request.META.get('CONTENT_TYPE') == 'application/json':
             try:
@@ -224,11 +230,12 @@ class DetailView(TimeSeriesView, HTMLView):
         else:
             request.json_data = None
 
-        context = {}
+        #context = {}
         try:
             readings = self.get_readings(request)
         except ValueError, e:
-            return self.error(httplib.BAD_REQUEST, type='value-error', message=e.args[0])
+            readings, successful = None, False
+            context['readings'] = {'error': e.args[0]}
         if readings and series.is_virtual:
             return self.bad_request("append-to-virtual", "You cannot append readings to a virtual time-series")
         if readings is not None and not self.has_perm('append', series):
@@ -257,11 +264,18 @@ class DetailView(TimeSeriesView, HTMLView):
                 return self.lacking_privilege("modify this time-series")
             form.save()
 
-        if self.get_renderers(request)[0].format == 'html':
-            return HttpResponseSeeOther(series.get_admin_url())
+        if successful and self.get_renderers(request)[0].format == 'html':
+            query = {}
+            if 'readings' in context:
+                query.update({'readings.count': context['readings']['count'],
+                              'readings.appended': context['readings']['appended']})
+            if 'updated' in context:
+                query['updated'] = ','.join(context['updated'])
+            return HttpResponseSeeOther('%s?%s' % (series.get_admin_url(), urllib.urlencode(query)))
 
-        return self.render(request, context, 'timeseries-admin/detail-post')
+        context['status_code'] = httplib.OK if successful else httplib.BAD_REQUEST
 
+        return self.render(request, context, 'timeseries-admin/detail')
 
     def get_readings(self, request):
         readings = []
@@ -285,12 +299,9 @@ class DetailView(TimeSeriesView, HTMLView):
                 except ValueError, e:
                     raise ValueError("Reading %i: %s" % (i, e.args[0]))
         elif request.META.get('CONTENT_TYPE') == 'text/csv':
-            reader = csv.reader(request)
-            for i, row in enumerate(reader):
-                if len(row) != 2:
-                    raise ValueError("Row %i doesn't have two columns" % i)
-                row[1] = float(row[1])
-                readings.append(row)
+            self.parse_csv(request, readings)
+        elif 'readings' in request.FILES:
+            self.parse_csv(request.FILES['readings'], readings)
         else:
             return None
 
@@ -305,6 +316,19 @@ class DetailView(TimeSeriesView, HTMLView):
             parsed_readings.append((ts, reading[1]))
 
         return parsed_readings
+
+    def parse_csv(self, fileobj, readings):
+        try:
+            reader = csv.reader(fileobj)
+            for i, row in enumerate(reader):
+                if len(row) != 2:
+                    raise ValueError("Row %i doesn't have two columns" % i)
+                row[1] = float(row[1])
+                readings.append(row)
+        except Exception, e:
+            if isinstance(e, ValueError):
+                raise
+            raise ValueError("Couldn't parse CSV from request.")
 
     def append_readings(self, request, slug, readings):
         pass

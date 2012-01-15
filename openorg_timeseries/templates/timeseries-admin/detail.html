@@ -5,6 +5,25 @@
 {% block content %}
   <h1>{{ series }}</h1>
   
+  {% if readings.error %}
+  <div class="error">
+    <p>There was an error processing the readings that you uploaded:</p>
+    <blockquote>{{ readings.error }}</blockquote>
+  </div>
+  {% endif %}
+  
+  {% if readings.count %}
+  <div class="{% if readings.count == readings.appended %}info{% else %}warning{% endif %}">
+    <p>
+      <strong>{{ readings.count }}</strong> readings were successfully parsed from
+      the file you uploaded, of which <strong>{{ readings.appended }}</strong> were
+      added to the series. {% if readings.count != readings.appended %}Those omitted
+      were before the previous last reading. {%endif %}The last reading is now at
+      <strong>{{ series.last }}</strong>.
+    </p>
+  </div>
+  {% endif %}
+  
   <section>
     <h2>Details</h2>
     <form method="post" action=".">
