@@ -17,6 +17,7 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.staticfiles',
     'django.contrib.messages',
+    'django_conneg',
     'openorg_timeseries',
     'object_permissions',
 )
@@ -27,6 +28,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'django_conneg.support.middleware.BasicAuthMiddleware',
 )
 
 ROOT_URLCONF = 'openorg_timeseries.demo.urls'
