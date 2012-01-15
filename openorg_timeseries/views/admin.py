@@ -32,6 +32,7 @@ class ErrorView(HTMLView, JSONPView, TextView):
     _force_fallback_format = 'json'
 
     def dispatch(self, request, context, template_name):
+        request.renderers = self.get_renderers(request)
         template_name = (template_name, 'timeseries-admin/error')
         return self.render(request, context, template_name)
 
@@ -101,9 +102,6 @@ class TimeSeriesView(JSONView):
 
 class ListView(TimeSeriesView, HTMLView, JSONPView):
     @method_decorator(login_required)
-    def dispatch(self, request):
-        return super(ListView, self).dispatch(request)
-
     def get(self, request):
         series = TimeSeries.objects.all().order_by('slug')
         series = [s for s in series if self.has_perm('view', s)]
@@ -114,6 +112,7 @@ class ListView(TimeSeriesView, HTMLView, JSONPView):
         }
         return self.render(request, context, 'timeseries-admin/index')
 
+    @method_decorator(login_required)
     def post(self, request):
         if not self.has_perm('add'):
             return self.lacking_privilege('create a new time-series')
@@ -157,15 +156,17 @@ class CreateView(TimeSeriesView, HTMLView):
         }
 
     @method_decorator(login_required)
-    def dispatch(self, request):
+    def get(self, request):
+        context = self.common(request)
         if not request.user.has_perm('openorg_timeseries.add_timeseries'):
             return self.lacking_privilege('create a new time-series')
-        return super(CreateView, self).dispatch(request, self.common(request))
-
-    def get(self, request, context):
         return self.render(request, context, 'timeseries-admin/create')
 
-    def post(self, request, context):
+    @method_decorator(login_required)
+    def post(self, request):
+        context = self.common(request)
+        if not request.user.has_perm('openorg_timeseries.add_timeseries'):
+            return self.lacking_privilege('create a new time-series')
         form, archive_formset = context['form'], context['archive_formset']
         if not (form.is_valid() and archive_formset.is_valid()):
             return self.render(request, context, 'timeseries-admin/create')
@@ -204,12 +205,14 @@ class DetailView(TimeSeriesView, HTMLView):
                    'form': form}
         return context
 
+    @method_decorator(login_required)
     def get(self, request, slug):
         context = self.common(request, slug)
         if not self.has_perm('view', context['series']):
             return self.lacking_privilege('view this time-series')
-        return self.render(request, context, 'timeseries/admin-detail')
+        return self.render(request, context, 'timeseries-admin/detail')
 
+    @method_decorator(login_required)
     def post(self, request, slug):
         context = self.common(request, slug)
         series, form = context['series'], context['form']
