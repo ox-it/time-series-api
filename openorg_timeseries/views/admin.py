@@ -246,7 +246,7 @@ class DetailView(TimeSeriesView, HTMLView):
                                    'appended': result['appended'],
                                    'last': result['last']}
 
-        editable_fields = ('title', 'notes')
+        editable_fields = ('title', 'notes', 'is_public')
         if request.json_data and any(f in request.json_data for f in editable_fields):
             context['updated'] = []
             if not self.has_perm('change', series):
@@ -262,6 +262,7 @@ class DetailView(TimeSeriesView, HTMLView):
         if form.is_valid():
             if not self.has_perm('change', series):
                 return self.lacking_privilege("modify this time-series")
+            context['update-successful'] = True
             form.save()
 
         if successful and self.get_renderers(request)[0].format == 'html':
@@ -269,8 +270,8 @@ class DetailView(TimeSeriesView, HTMLView):
             if 'readings' in context:
                 query.update({'readings.count': context['readings']['count'],
                               'readings.appended': context['readings']['appended']})
-            if 'updated' in context:
-                query['updated'] = ','.join(context['updated'])
+            if context.get('update-successful'):
+                query['updated'] = 'true'
             return HttpResponseSeeOther('%s?%s' % (series.get_admin_url(), urllib.urlencode(query)))
 
         context['status_code'] = httplib.OK if successful else httplib.BAD_REQUEST
