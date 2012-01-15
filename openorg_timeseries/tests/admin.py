@@ -46,7 +46,7 @@ class ListPermissionTestCase(TimeSeriesTestCase):
         response = self.client.get('/admin/')
         self.assertEqual(response.status_code, httplib.UNAUTHORIZED)
         self.assertTrue('WWW-Authenticate' in response)
-        self.assertEqual(response['WWW-Authenticate'], 'Basic')
+        self.assertTrue(response['WWW-Authenticate'].startswith('Basic '))
 
     def getTimeSeries(self, username):
         response = self.client.get('/admin/',
@@ -75,9 +75,9 @@ class RESTCreationTestCase(TimeSeriesTestCase):
 
     def testUnauthorized(self):
         response = self.client.post('/admin/')
-        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.status_code, httplib.UNAUTHORIZED)
         self.assertTrue('WWW-Authenticate' in response)
-        self.assertEqual(response['WWW-Authenticate'], 'Basic')
+        self.assertTrue(response['WWW-Authenticate'].startswith('Basic '))
 
     def testUnprivileged(self):
         response = self.client.post('/admin/',
