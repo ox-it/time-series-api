@@ -32,7 +32,6 @@ class ErrorView(HTMLView, JSONPView, TextView):
     _force_fallback_format = 'json'
 
     def dispatch(self, request, context, template_name):
-        request.renderers = self.get_renderers(request)
         template_name = (template_name, 'timeseries-admin/error')
         return self.render(request, context, template_name)
 
