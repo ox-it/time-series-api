@@ -156,6 +156,9 @@ class TimeSeries(models.Model):
     def get_admin_url(self):
         return reverse('timeseries-admin:detail', args=[self.slug])
 
+    def __unicode__(self):
+        return "%s (%s)" % (self.title, self.slug)
+
 object_permissions.register(['openorg_timeseries.view_timeseries',
                              'openorg_timeseries.append_timeseries',
                              'openorg_timeseries.change_timeseries',
