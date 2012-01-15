@@ -2,6 +2,7 @@ import copy
 import csv
 import httplib
 import os
+import urlparse
 
 try:
     import json
@@ -127,23 +128,7 @@ class RESTCreationTestCase(TimeSeriesTestCase):
         # Check that we get a conflict response
         self.assertEqual(response.status_code, httplib.CONFLICT)
 
-class RESTDetailTestCase(TimeSeriesTestCase):
-    def setUp(self):
-        response = self.client.post('/admin/',
-                                    data=json.dumps(self.real_timeseries),
-                                    content_type='application/json',
-                                    REMOTE_USER='withaddperm')
-        self.location = response['Location']
-
-    def testGet(self):
-        response = self.client.get(self.location,
-                                   content_type='application/json',
-                                   REMOTE_USER='withaddperm')
-
-        self.assertEqual(response.status_code, httplib.OK)
-        self.assertEqual(response['Content-type'], 'application/json')
-        body = json.loads(response._get_content())
-
+class DetailTestCase(TimeSeriesTestCase):
     readings = {
         'json': json.dumps({'readings': [{'ts': '1970-01-01T00:30:00+00:00', 'val': 5},
                                          {'ts': 3600000, 'val': 10},
@@ -157,6 +142,23 @@ class RESTDetailTestCase(TimeSeriesTestCase):
                      ['1970-01-01T02:00:00+01:00', '10.0'],
                      ['1970-01-01T02:30:00+01:00', '15.0'],
                      ['1970-01-01T03:00:00+01:00', '20.0']]}
+
+    def setUp(self):
+        response = self.client.post('/admin/',
+                                    data=json.dumps(self.real_timeseries),
+                                    content_type='application/json',
+                                    REMOTE_USER='withaddperm')
+        self.location = response['Location']
+
+class RESTDetailTestCase(DetailTestCase):
+    def testGet(self):
+        response = self.client.get(self.location,
+                                   content_type='application/json',
+                                   REMOTE_USER='withaddperm')
+
+        self.assertEqual(response.status_code, httplib.OK)
+        self.assertEqual(response['Content-type'], 'application/json')
+        body = json.loads(response._get_content())
 
     def testPostJSON(self):
         self.postReadings('application/json', 'json')
@@ -244,6 +246,7 @@ class RESTDetailTestCase(TimeSeriesTestCase):
 
         self.assertEqual(response.status_code, httplib.FORBIDDEN)
 
+class FormDetailTestCase(DetailTestCase):
     def testFormChange(self):
         form_data = {'title': 'new title',
                      'notes': 'new notes'}
@@ -264,6 +267,30 @@ class RESTDetailTestCase(TimeSeriesTestCase):
                                     content_type='application/json',
                                     REMOTE_USER='unprivileged')
         self.assertEqual(response.status_code, httplib.OK)
+
+    def testCSVUpload(self):
+        filename = os.path.join(os.path.dirname(__file__), 'data', 'test_data.csv')
+        with open(filename) as csv_file:
+            response = self.client.post(self.location,
+                                        data={'readings': csv_file},
+                                        REMOTE_USER='withaddperm',
+                                        HTTP_ACCEPT='text/html',
+                                        follow=False)
+
+        self.assertEqual(response.status_code, httplib.SEE_OTHER)
+
+        # Check that the time-series was updated
+        with open(os.path.join(settings.TIME_SERIES_PATH, 'csv', self.real_timeseries['slug'] + '.csv')) as f:
+            reader = csv.reader(f)
+            self.assertSequenceEqual(list(reader), self.readings['expected'])
+
+        # Check that the result of the upload made it into the query string
+        location = urlparse.urlparse(response['Location'])
+        query = urlparse.parse_qs(location.query)
+        self.assertEqual(query.get('readings.count'), ['4'])
+        self.assertEqual(query.get('readings.appended'), ['4'])
+
+
 
 class CreateViewTestCase(TimeSeriesTestCase):
     def testGET(self):
