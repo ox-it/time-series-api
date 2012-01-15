@@ -71,3 +71,8 @@ p {
 	padding-top: 1em;
 	text-align: center;
 }
+
+.helptext {
+	font-size:80%;
+	color: #444;
+}

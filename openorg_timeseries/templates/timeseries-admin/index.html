@@ -3,7 +3,7 @@
 {% block title %}Time-series admin{% endblock %}
 
 {% block content %}
-  <h1>Time-series</h1>
+  <h1>Time-series administration</h1>
   
   <p>
     <a href="{% url timeseries-admin:create %}">Create new time-series</a>
@@ -14,12 +14,16 @@
       <tr>
         <th>Slug</th>
         <th>Title</th>
+        <th>Notes</th>
+        <th>Last updated</th>
       </tr>
     </thead>
     <tbody>{% for series in series %}
       <tr>
         <td><a href="{{ series.get_admin_url }}">{{ series.slug }}</a></td>
         <td>{{ series.title }}</td>
+        <td>{{ series.notes }}</td>
+        <td>{{ series.last }}</td>
       </tr>
     {% endfor %}</tbody>
   </table>

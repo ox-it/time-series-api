@@ -1,0 +1,37 @@
+{% extends "timeseries-admin/base.html" %}
+
+{% block title %}{{ series }}{% endblock %}
+
+{% block content %}
+  <h1>{{ series }}</h1>
+  
+  <section>
+    <h2>Details</h2>
+    <form method="post" action=".">
+      <table>
+        <tbody>{{ form }}</tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2">
+              <input type="submit" value="Update"/>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </form>
+  </section>
+  
+  <section>
+    <h2>Upload readings</h2>
+    <p class="helptext">
+      Use this form to upload a CSV file containing readings. The CSV file
+      should contain exactly two columns, the first containing a date-time
+      string, and the second containing the reading.
+    </p>
+    <form method="post" action="." enctype="multipart/form-data">
+      <input type="file" name="readings"/>
+      <input type="submit" value="Upload"/>
+    </form>
+  </section>
+  
+{% endblock %}

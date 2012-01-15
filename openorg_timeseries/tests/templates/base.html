@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{% block title %}{% endblock %} | openorg_timeseries tests</title>
+    {% block extra_head %}{% endblock %}
+  </head>
+  {% block body %}
+  <body>
+    <header>openorg_timeseries tests</header>
+    {% block menu %}{% endblock %}
+    <article>
+    {% block content %}{% endblock %}
+    </article>
+  </body>
+  {% endblock %}
+</html>
