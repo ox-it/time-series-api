@@ -2,12 +2,11 @@
 
 {% block title %}Time-series admin{% endblock %}
 
-{% block body %}
-<article>
+{% block content %}
   <h1>Time-series</h1>
   
   <p>
-    <a href="{% url timeseries:create %}">Create new time-series</a>
+    <a href="{% url timeseries-admin:create %}">Create new time-series</a>
   </p>
   
   <table>
@@ -24,6 +23,4 @@
       </tr>
     {% endfor %}</tbody>
   </table>
-  
-</article>
 {% endblock %}
