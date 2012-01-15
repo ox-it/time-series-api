@@ -264,3 +264,12 @@ class RESTDetailTestCase(TimeSeriesTestCase):
                                     content_type='application/json',
                                     REMOTE_USER='unprivileged')
         self.assertEqual(response.status_code, httplib.OK)
+
+class CreateViewTestCase(TimeSeriesTestCase):
+    def testGET(self):
+        response = self.client.get('/admin/create/',
+                                   REMOTE_USER='withaddperm',
+                                   HTTP_ACCEPT='text/html')
+        self.assertEqual(response.status_code, httplib.OK, response._get_content())
+        self.assertEqual(response['Content-type'], 'text/html', response._get_content())
+
