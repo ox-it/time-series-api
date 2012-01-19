@@ -2,4 +2,9 @@ table.timeseries-serializations, table.timeseries-samples {
   border: 1px solid #aaa;
   float:right;
   font-size:80%;
+  margin:0 0 10px 10px;
+}
+
+table.timeseries-serializations td, table.timeseries-samples td {
+	padding: 0;
 }
