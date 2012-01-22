@@ -34,7 +34,7 @@ class TimeSeriesDatabase(object):
     _value_format = '<f'
     _value_format_size = struct.calcsize(_value_format)
 
-    _header_format = '<qLLL64sL'
+    _header_format = '<qqLL64sq'
     _header_format_size = struct.calcsize(_header_format)
 
     # For recording the most recent timestamp
