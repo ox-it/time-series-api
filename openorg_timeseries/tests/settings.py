@@ -39,3 +39,6 @@ TIME_SERIES_PATH = tempfile.mkdtemp()
 ROOT_URLCONF = 'openorg_timeseries.tests.urls'
 
 TEST_RUNNER = 'openorg_timeseries.tests.runner.TestSuiteRunner'
+
+# for django_conneg, so that the basic auth middleware kicks in.
+BASIC_AUTH_ALLOW_HTTP = True
