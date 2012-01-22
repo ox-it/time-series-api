@@ -1,7 +1,9 @@
 import datetime
 
+import dateutil.parser
 from django import forms
 from django.conf import settings
+from django.forms.util import ValidationError
 from django.forms.formsets import formset_factory
 import pytz
 
@@ -17,8 +19,9 @@ class NewTimeSeriesForm(forms.ModelForm):
     timezone_name = forms.ChoiceField(choices=[(x, x) for x in pytz.all_timezones],
                                       required=False,
                                       initial=settings.TIME_ZONE)
-    start = forms.DateTimeField(required=False,
-                                initial=datetime.datetime(1970, 1, 1))
+    start = forms.CharField(required=False,
+                            initial='1970-01-01 00:00:00',
+                            help_text='The earliest point from which readings are to be inserted. Should be in the form <code>YYYY-MM-DD HH:MM:SS</code>. Interpreted in the series time zone if no time zone specified.')
     is_virtual = forms.TypedChoiceField(coerce=bool,
                                         choices=(('', 'real'), ('on', 'virtual')),
                                         widget=forms.RadioSelect,
@@ -27,20 +30,26 @@ class NewTimeSeriesForm(forms.ModelForm):
     equation = forms.CharField(required=False)
 
     def clean_start(self):
-        timezone = pytz.timezone(self.cleaned_data['timezone_name'])
-        start = self.cleaned_data['start'] or datetime.datetime(1970, 1, 1)
-        return timezone.localize(start)
+        try:
+            start = dateutil.parser.parse(self.cleaned_data['start'])
+        except Exception, e:
+            raise ValidationError(e)
+        if not start.tzinfo:
+            timezone = pytz.timezone(self.cleaned_data['timezone_name'])
+            start = timezone.localize(start)
+        return start
 
     def clean(self):
         if self.cleaned_data.get('is_virtual'):
-            if not self.cleaned_data['equation']:
+            if not self.cleaned_data.get('equation'):
                 self._errors['equation'] = self.error_class(['This field is required.'])
                 del self.cleaned_data['equation']
         else:
             for name in 'interval start series_type timezone_name'.split():
-                if not self.cleaned_data[name]:
+                if not self.cleaned_data.get(name):
                     self._errors[name] = self.error_class(['This field is required.'])
-                    del self.cleaned_data[name]
+                    if name in self.cleaned_data:
+                        del self.cleaned_data[name]
         return self.cleaned_data
 
 
