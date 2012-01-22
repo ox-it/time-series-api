@@ -1,13 +1,10 @@
 from __future__ import with_statement
 
 import collections
-import contextlib
 import csv
-import datetime
 import functools
 import logging
 import os
-import re
 import sys
 import threading
 import time
