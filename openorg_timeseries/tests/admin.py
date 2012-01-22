@@ -290,13 +290,35 @@ class FormDetailTestCase(DetailTestCase):
         self.assertEqual(query.get('readings.count'), ['4'])
         self.assertEqual(query.get('readings.appended'), ['4'])
 
-
-
 class CreateViewTestCase(TimeSeriesTestCase):
-    def testGET(self):
+    def testGet(self):
         response = self.client.get('/admin/create/',
                                    REMOTE_USER='withaddperm',
                                    HTTP_ACCEPT='text/html')
         self.assertEqual(response.status_code, httplib.OK, response._get_content())
         self.assertEqual(response['Content-type'], 'text/html', response._get_content())
+
+    def testPost(self):
+        data = {'slug': 'test',
+                'title': 'Title',
+                'notes': 'Notes',
+                'is_public': 'on',
+                'is_virtual': '',
+                'start': '1970-01-01T00:00:00',
+                'timezone_name': 'Europe/London',
+                'series_type': 'gauge',
+                'interval': '1800',
+                'form-TOTAL_FORMS': '3',
+                'form-INITIAL_FORMS': '0',
+                'form-0-aggregation_type': 'average',
+                'form-0-aggregation': '1',
+                'form-0-count': '10000'}
+        response = self.client.post('/admin/create/',
+                                    data=data,
+                                    REMOTE_USER='withaddperm',
+                                    HTTP_ACCEPT='text/html',
+                                    follow=False)
+        self.assertEqual(response.status_code, httplib.SEE_OTHER, response._get_content())
+
+
 
