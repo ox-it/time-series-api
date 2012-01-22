@@ -21,7 +21,6 @@ class ClientError(TimeSeriesException): pass
 class SeriesNotFound(ClientError): pass
 class SeriesAlreadyExists(ClientError): pass
 class NoSuchCommand(ClientError): pass
-#class InvalidCommand(RRDException): pass
 
 def requireExists(f):
     @functools.wraps(f)
