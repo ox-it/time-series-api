@@ -9,7 +9,7 @@ import sys
 import threading
 import time
 
-import processing.managers
+import multiprocessing.managers
 
 from django.conf import settings
 from openorg_timeseries.database import TimeSeriesDatabase
@@ -62,8 +62,6 @@ def with_db(method=None, with_csv=False):
                 return method(self, db, *args, **kwargs)
     return f
 
-class DatabaseManager(processing.managers.BaseManager):
-    get_client = processing.managers.CreatorMethod(typeid='get_client')
 
 class DatabaseThread(threading.Thread):
     def __init__(self, bail):
@@ -83,10 +81,8 @@ class DatabaseThread(threading.Thread):
         def get_client_func():
             return _DatabaseClient(settings.TIME_SERIES_PATH, self.databases, self.main_lock, self.locks)
 
-        class DatabaseManager(processing.managers.BaseManager):
-            get_client = processing.managers.CreatorMethod(get_client_func, typeid='get_client')
-
-        self.manager = DatabaseManager(**settings.TIME_SERIES_SERVER_ARGS)
+        self.manager = multiprocessing.managers.BaseManager(**settings.TIME_SERIES_SERVER_ARGS)
+        self.manager.register('get_client', get_client_func)
 
         #self.bail_thread = threading.Thread(target=self.bail_watcher)
         #self.bail_thread.start()
@@ -155,7 +151,8 @@ class _DatabaseClient(object):
         return list(db.fetch(aggregation_type, interval, period_start, period_end))
 
 def get_client():
-    manager = DatabaseManager.from_address(**settings.TIME_SERIES_SERVER_ARGS)
+    manager = multiprocessing.managers.BaseManager(**settings.TIME_SERIES_SERVER_ARGS)
+    manager.connect()
     return manager.get_client()
 
 def run():
