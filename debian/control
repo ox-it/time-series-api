@@ -10,6 +10,8 @@ Build-Depends: debhelper (>= 7.0.50~),
                python-django-longliving,
                python-django-object-permissions,
                python-dateutil,
+               python-mock,
+               python-unittest2,
                python-tz
 Standards-Version: 3.8.4
 X-Python-Version: >= 2.6
