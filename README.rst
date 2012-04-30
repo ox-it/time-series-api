@@ -34,7 +34,7 @@ This project comprises a Django application that you can include in an existing
 Django project by adding ``'openorg_timeseries'`` to your ``INSTALLED_APPS``
 variable in your Django settings file.
 
-``openorg_timeseries.longliving`` contains a ``threading.Thread`` which mediates access to the underlying data, and which prevents …
+``openorg_timeseries.longliving`` contains a ``threading.Thread`` which mediates access to the underlying data, and which prevents ...
 
 Demonstration application
 -------------------------

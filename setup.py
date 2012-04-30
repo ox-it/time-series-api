@@ -65,7 +65,7 @@ setup(
     author='Oxford University Computing Services',
     author_email='opendata@oucs.ox.ac.uk',
     url='http://openorg.ecs.soton.ac.uk/wiki/Metering',
-    version='0.1',
+    version='0.1.1',
     packages=packages,
     license='BSD',
     long_description=open('README.rst').read(),
