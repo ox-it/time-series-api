@@ -60,7 +60,7 @@ for line in open('requirements.txt'):
 
 
 setup(
-    name='time-series-api',
+    name='openorg-timeseries',
     description="An implementation of the OpenOrg time-series API",
     author='Oxford University Computing Services',
     author_email='opendata@oucs.ox.ac.uk',
