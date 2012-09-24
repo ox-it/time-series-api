@@ -272,7 +272,7 @@ class DocumentationView(HTMLView):
     def get(self, request):
         renderers = {}
         for action, view in EndpointView._views_by_action.iteritems():
-            renderers[action] = [{'format': r.format, 'mimetypes': r.mimetypes, 'name': r.name} for r in view._renderers]
+            renderers[action] = [{'format': r.format, 'mimetypes': r.mimetypes, 'name': r.name} for r in view.conneg.renderers]
         context = {
             'endpoint_url': request.build_absolute_uri(reverse('timeseries-endpoint:index')),
             'renderers': renderers,
