@@ -77,11 +77,11 @@ class TimeSeriesView(JSONView):
                                       'timeseries-admin/error-bad-request')
 
     _json_indent = 2
-    def simplify(self, value):
+    def simplify_for_json(self, value):
         if isinstance(value, datetime.datetime):
             return 1000 * calendar.timegm(value.astimezone(pytz.utc).timetuple())
         if isinstance(value, QuerySet):
-            return map(self.simplify, value)
+            return map(self.simplify_for_json, value)
         if isinstance(value, TimeSeries):
             data = {
                 '_url': value.get_admin_url(),
@@ -94,9 +94,9 @@ class TimeSeriesView(JSONView):
                 data['equation'] = value.equation
             else:
                 data['config'] = value.config
-            return self.simplify(data)
+            return self.simplify_for_json(data)
         else:
-            return super(TimeSeriesView, self).simplify(value)
+            return super(TimeSeriesView, self).simplify_for_json(value)
 
     def filtered_dict(self, d, keys):
         return dict((k, d.get(k)) for k in keys)
