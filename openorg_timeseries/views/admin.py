@@ -32,12 +32,13 @@ from openorg_timeseries.models import TimeSeries
 class ErrorView(HTMLView, JSONPView, TextView):
     _force_fallback_format = 'json'
 
-    def dispatch(self, request, context, template_name):
+    def get(self, request, context, template_name):
         template_name = (template_name, 'timeseries-admin/error')
         return self.render(request, context, template_name)
+    post = delete = put = get
 
 class TimeSeriesView(JSONView):
-    _error = staticmethod(ErrorView.as_view())
+    _timeseries_error = staticmethod(ErrorView.as_view())
     _default_format = 'json'
 
     def has_perm(self, perm, obj=None):
@@ -48,32 +49,32 @@ class TimeSeriesView(JSONView):
         return has_perm(perm)
 
 
-    def error(self, status_code, **kwargs):
-        return self._error(self.request,
-                           dict(status_code=status_code, **kwargs),
-                           'timeseries-admin/error')
+    def timeseries_error(self, status_code, **kwargs):
+        return self._timeseries_error(self.request,
+                                      dict(status_code=status_code, **kwargs),
+                                      'timeseries-admin/error')
 
     def lacking_privilege(self, action):
-        return self._error(self.request,
-                           {'status_code': httplib.FORBIDDEN,
-                            'error': 'lacking-privilege',
-                            'message': 'The authenticated user lacks the necessary privilege to %s' % action},
-                           'timeseries-admin/error-lacking-privilege')
+        return self._timeseries_error(self.request,
+                                      {'status_code': httplib.FORBIDDEN,
+                                       'error': 'lacking-privilege',
+                                       'message': 'The authenticated user lacks the necessary privilege to %s' % action},
+                                      'timeseries-admin/error-lacking-privilege')
 
     def invalid_json(self, exception):
-        return self._error(self.request,
-                           {'status_code': httplib.BAD_REQUEST,
-                            'error': 'invalid-json',
-                            'message': 'Could not parse request body as JSON',
-                            'detail': unicode(exception)},
-                           'timeseries-admin/error-invalid-json')
+        return self._timeseries_error(self.request,
+                                      {'status_code': httplib.BAD_REQUEST,
+                                       'error': 'invalid-json',
+                                       'message': 'Could not parse request body as JSON',
+                                       'detail': unicode(exception)},
+                                      'timeseries-admin/error-invalid-json')
 
     def bad_request(self, error, message):
-        return self._error(self.request,
-                           {'status_code': httplib.BAD_REQUEST,
-                            'error': error,
-                            'message': message},
-                           'timeseries-admin/error-bad-request')
+        return self._timeseries_error(self.request,
+                                      {'status_code': httplib.BAD_REQUEST,
+                                       'error': error,
+                                       'message': message},
+                                      'timeseries-admin/error-bad-request')
 
     _json_indent = 2
     def simplify(self, value):
@@ -121,7 +122,7 @@ class ListView(TimeSeriesView, HTMLView, JSONPView):
         try:
             data = json.load(request)
         except ValueError, e:
-            return self._error.invalid_json(request, e)
+            return self.invalid_json(request, e)
 
 
         time_series = TimeSeries()
@@ -130,17 +131,17 @@ class ListView(TimeSeriesView, HTMLView, JSONPView):
             try:
                 setattr(time_series, key, data[key])
             except KeyError:
-                return self.error(httplib.BAD_REQUEST,
-                                  error='missing-field',
-                                  field=key,
-                                  message='Field "%s" was missing.' % key)
+                return self.timeseries_error(httplib.BAD_REQUEST,
+                                             error='missing-field',
+                                             field=key,
+                                             message='Field "%s" was missing.' % key)
         try:
             time_series.save()
         except IntegrityError:
             # A time-series already exists with the desired slug
-            return self.error(httplib.CONFLICT,
-                              error='already-exists',
-                              message='A time-series already exists with the slug %r.' % time_series.slug)
+            return self.timeseries_error(httplib.CONFLICT,
+                                         error='already-exists',
+                                         message='A time-series already exists with the slug %r.' % time_series.slug)
         for perm in ('view', 'append', 'change', 'delete'):
             request.user.grant('openorg_timeseries.%s_timeseries' % perm, time_series)
         return self.render(request,
@@ -265,7 +266,7 @@ class DetailView(TimeSeriesView, HTMLView):
             context['update-successful'] = True
             form.save()
 
-        if successful and self.get_renderers(request)[0].format == 'html':
+        if successful and request.renderers[0].format == 'html':
             query = {}
             if 'readings' in context:
                 query.update({'readings.count': context['readings']['count'],
@@ -337,7 +338,7 @@ class DetailView(TimeSeriesView, HTMLView):
     def delete(self, request, slug):
         context = self.common(request, slug)
         if not request.user.has_perm('openorg_timeseries.delete_timeseries', context['series']):
-            return self._error.lacking_privilege(request, 'delete this time-series')
+            return self.lacking_privilege(request, 'delete this time-series')
         context['series'].delete()
         return HttpResponse('', status=httplib.NO_CONTENT)
 
