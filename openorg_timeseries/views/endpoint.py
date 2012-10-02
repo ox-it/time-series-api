@@ -7,7 +7,11 @@ import time
 import dateutil.parser
 import pytz
 import rdflib
-from rdflib.namespace import RDF, RDFS
+try: # rdflib 3.0
+    from rdflib.namespace import RDF, RDFS
+except ImportError: # rdflib 2.4
+    from rdflib.RDF import RDFNS as RDF
+    from rdflib.RDFS import RDFSNS as RDFS
 
 from django.conf import settings
 from django.core.urlresolvers import reverse
